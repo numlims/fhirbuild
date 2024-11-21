@@ -1,11 +1,12 @@
+# fhirbuild: versuch, ein paar fhir funktionen zu skizzieren.
+# usage: fhirbuild [specimen|observation] in.csv outdir
+
+# vielleicht ist fhir-building aber schon besser wo anders geloest,
+# da muessten wir mal suchen, https://www.google.com/search?q=python+fhir+frameworks  
+# vielleicht z.b. hier https://pypi.org/project/fhir.resources/
 
 from datetime import date
 import pandas as pd
-
-# fhirbuild: versuch, ein paar fhir funktionen zu skizzieren.
-# vielleicht ist das aber schon besser wo anders geloest,
-# da muessten wir mal suchen, https://www.google.com/search?q=python+fhir+frameworks  
-# vielleicht z.B. hier https://pypi.org/project/fhir.resources/
 
 # dateString returns fhir-compatible date string of date
 def datestring(d: pd.Timestamp):
@@ -387,3 +388,7 @@ def fhir_obs(component=[], effective_date_time:pd.Timestamp=None, fhirid:str=Non
     })
 
     return entry
+
+
+
+
