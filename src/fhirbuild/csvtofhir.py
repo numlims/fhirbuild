@@ -46,14 +46,14 @@ import re
 import os
 from fhirbuild.buildhelp import *
 
-# csv_to_specimen_str turns csv text to fhir string
+# csv_to_specimen_str turns csv file to fhir string
 # should it return array of objects or string?
-def csv_to_specimen_str(text) -> str:
-    return json.dumps(csv_to_specimen(text))
+def csv_to_specimen_str(file) -> str:
+    return json.dumps(csv_to_specimen(file))
 
-# csv_to_specimen turns csv text into an array of fhir objects
-def csv_to_specimen(text):
-    reader = csv.dictreader(text, delimiter=",")
+# csv_to_specimen turns csv file into an array of fhir objects
+def csv_to_specimen(file, delimiter=";"):
+    reader = csv.dictreader(file, delimiter=delimiter)
     rows = list(reader)
 
     out = []
@@ -134,13 +134,13 @@ def row_to_observation(row:dict, i):
 
     row = DictPath(row)
 
-    # gather the components (columns prefixed by 'comp_') and sampleids (columns prefixed by 'id_') for this row into one array each
+    # gather the components (columns prefixed by 'cmp_') and sampleids (columns prefixed by 'id_') for this row into one array each
     comps = [] # array of key value pairs
     ids = [] # array of key value pairs
     for key in row.keys():
         # are we at a component column
         if re.match("^cmp_", key):
-            # strip the comp_ prefix and remember
+            # strip the cmp_ prefix and remember
             withoutprefix = re.sub(r"^cmp_", "", key)
             comps.append((withoutprefix, row[key]))
         # are we at a sampleid column
@@ -157,8 +157,11 @@ def row_to_observation(row:dict, i):
     return entry
 
 # csv_to_observation turns rows seperate fhir files
-def csv_to_observation(rows):
+def csv_to_observation(file, delimiter=";"):
 
+    reader = csv.dictreader(file, delimiter=delimiter)
+    rows = list(reader)
+        
     # todo check that only the specified columns are in csv
 
     out = []
