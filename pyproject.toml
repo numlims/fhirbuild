@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling"] # list of packages needed to build your package
-build-backend = "hatchling.build" # name of the python object that frontends use to perform the build
+requires = ["setuptools"] # list of packages needed to build your package
+build-backend = "setuptools.build_meta" # name of the python object that frontends use to perform the build
 
 [project]
 name = "fhirbuild"
@@ -21,3 +21,6 @@ classifiers = [
 
 [project.scripts]
 fhirbuild = "fhirbuild:__main__"
+
+[tool.setuptools]
+packages = ["fhirbuild"]
