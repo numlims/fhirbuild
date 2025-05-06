@@ -141,8 +141,19 @@ def row_to_observation(row:dict, i):
 # row_to_patient turns the row of a csv to fhir patient
 def row_to_patient(row:dict, i):
     # todo id_PSN auseinander droeseln in zwei argumente, die id und den idcontainertyp
-    entry = fhir_patient(psn=row['id_PSN'], organization_unit=row['organization_unit'], study=row['study'], fhirid=str(i))
+
+    update_with_overwrite = get_update_overwrite_flag(row)
+
+    entry = fhir_patient(psn=row['id_PSN'], organization_unit=row['organization_unit'], study=row['study'], fhirid=str(i), update_with_overwrite=update_with_overwrite)
     return entry
+
+# get_update_overwrite_flag checks if the row has the update_with_overwrite flag set, returns true or false, false if not set
+def get_update_overwrite_flag(row):
+    if 'update_with_overwrite' in row.keys():
+        update_with_overwrite = row['update_with_overwrite']
+    else:
+        update_with_overwrite = False
+    return update_with_overwrite
 
 # csv_to_observation turns rows seperate fhir files
 def csv_to_observation(file, delimiter):

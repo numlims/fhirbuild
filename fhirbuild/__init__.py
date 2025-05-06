@@ -392,7 +392,7 @@ def fhir_obs(component=[], effective_date_time:pd.Timestamp=None, fhirid:str=Non
 
 
 # fhir_patient baut einen patienten fhir aus werten
-def fhir_patient(psn:str=None, study:str=None, organization_unit:str=None, fhirid:str=None):
+def fhir_patient(psn:str=None, organization_unit:str=None, fhirid:str=None, update_with_overwrite:bool=True):
 
     entry = {
    "resourceType": "Bundle",
@@ -404,7 +404,7 @@ def fhir_patient(psn:str=None, study:str=None, organization_unit:str=None, fhiri
       "id": fhirid,
         "extension": [{
             "url": "https://fhir.centraxx.de/extension/updateWithOverwrite",
-            "valueBoolean": True
+            "valueBoolean": update_with_overwrite
         }],
        "identifier": [ {
           "type": {
@@ -417,7 +417,7 @@ def fhir_patient(psn:str=None, study:str=None, organization_unit:str=None, fhiri
        } ],
        "generalPractitioner": [ {
          "identifier": {
-          "value": study # study?
+          "value": organization_unit
          }
         } ]
         },
