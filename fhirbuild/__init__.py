@@ -402,16 +402,10 @@ def fhir_patient(psn:str=None, study:str=None, organization_unit:str=None, fhiri
     "resource": {
       "resourceType": "Patient",
       "id": fhirid,
-      "extension": [
-        fhir_extension(
-            "https://fhir.centraxx.de/extension/sample/organizationUnit",
-            {
-                "valueReference": {
-                "identifier": {
-                    "value": organization_unit
-                }
-            }
-        })],
+        "extension": [{
+            "url": "https://fhir.centraxx.de/extension/updateWithOverwrite",
+            "valueBoolean": True
+        }],
        "identifier": [ {
           "type": {
             "coding": [ {
