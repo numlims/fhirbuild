@@ -47,7 +47,24 @@ def fhir_extension(url:str, d):
 
 # fhir_aliquot builds a fhir aliquot. all arguments are named arguments.
 # todo rename?
-def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=None, location_path:str=None, organization_unit=None, derival_date:pd.Timestamp=None, identifiers=None, type=None, subject_limspsn=None, received_date:pd.Timestamp=None, parent_fhirid=None, collected_date:pd.Timestamp=None, initial_amount=None, rest_amount=None, ali_container=None, xposition:int=None, yposition:int=None, concentration=None):
+def fhir_sample(category:str=None,
+                 fhirid=None, 
+                 reposition_date:pd.Timestamp=None, 
+                 location_path:str=None, 
+                 organization_unit=None, 
+                 derival_date:pd.Timestamp=None, 
+                 identifiers=None, 
+                 type=None, 
+                 subject_limspsn=None, 
+                 received_date:pd.Timestamp=None, 
+                 parent_fhirid=None, 
+                 collected_date:pd.Timestamp=None, 
+                 initial_amount=None, 
+                 rest_amount=None, 
+                 ali_container=None, 
+                 xposition:int=None, 
+                 yposition:int=None, 
+                 concentration=None):
     entry = {
         "fullUrl": f"Specimen/{fhirid}",
         "resource": {
@@ -69,10 +86,6 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
                         }
                     }
                 }),
-                fhir_extension(
-                    "https://fhir.centraxx.de/extension/sample/derivalDate",
-                    { "valueDateTime": datestring(derival_date) }
-                ),
                 fhir_extension(
                     "https://fhir.centraxx.de/extension/sampleCategory",
                     {
@@ -121,6 +134,14 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
             "url": f"Specimen/{fhirid}",
         }
     }
+
+
+
+    if derival_date:
+        entry["resource"]["extension"].append(fhir_extension(
+            "https://fhir.centraxx.de/extension/sample/derivalDate",
+            { "valueDateTime": datestring(derival_date) }
+        ))
 
     if xposition != None:
         for ext in entry['resource']['extension']:

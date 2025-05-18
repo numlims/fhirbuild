@@ -144,7 +144,7 @@ def row_to_patient(row:dict, i):
 
     update_with_overwrite = get_update_overwrite_flag(row)
 
-    entry = fhir_patient(psn=row['id_PSN'], organization_unit=row['organization_unit'], study=row['study'], fhirid=str(i), update_with_overwrite=update_with_overwrite)
+    entry = fhir_patient(psn=row['id_PSN'], organization_unit=row['organization_unit'], fhirid=str(i), update_with_overwrite=update_with_overwrite)
     return entry
 
 # get_update_overwrite_flag checks if the row has the update_with_overwrite flag set, returns true or false, false if not set
