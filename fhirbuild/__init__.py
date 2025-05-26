@@ -20,8 +20,8 @@ def datestring(d: pd.Timestamp):
 
 # fhirIdentifier returns a fhir identifier
 def fhir_identifier(code:str=None, value:str=None, system:str="urn:centraxx"):
-
-    if code is None or value is None:
+    print(f"fhir_identifier: {code} {value}")
+    if code is None or value is None or value == "" or value == "NULL":
         raise ValueError("code and value must not be None")
     return {
         "type": {

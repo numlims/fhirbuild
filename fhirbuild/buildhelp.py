@@ -9,6 +9,9 @@ def panda_timestamp(date_string):
 
     # eventuell fehler checken in dieser funktion
 
+    if date_string is None or date_string == "" or date_string == "NULL":
+        return None
+
     # Überprüfen, ob es sich um einen leeren Wert handelt
     if pd.isna(date_string):
         return None

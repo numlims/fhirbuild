@@ -90,7 +90,10 @@ def row_to_specimen(row:dict) -> dict:
 
         identifiers = []
         for type, value in raw_identifiers:
-            identifiers.append(fhir_identifier(code=type, value=value))
+            try:
+                identifiers.append(fhir_identifier(code=type, value=value))
+            except ValueError as e:
+                print(f"Error processing identifier {type}: {e}")   
 
         initial_amount = None      
         if row['initial_amount']:
@@ -158,6 +161,7 @@ def row_to_patient(row:dict, i):
     update_with_overwrite = get_update_overwrite_flag(row)
 
     # identifiers
+    print(row)
     raw_identifiers = extract_identifiers(row, prefix="idcp_")  
     
     identifiers = []
