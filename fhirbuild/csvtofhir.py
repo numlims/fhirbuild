@@ -111,6 +111,7 @@ def row_to_specimen(row:dict) -> dict:
 
 # intornone parses a string to int and doesn't cry when it receives none
 def intornone(s:str):
+    print(f"intornone: {s}")
     if s == None:
         return None
     return int(s)

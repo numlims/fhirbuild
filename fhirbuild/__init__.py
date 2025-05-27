@@ -7,6 +7,7 @@
 
 from datetime import date
 import pandas as pd
+import uuid
 
 # dateString returns fhir-compatible date string of date
 def datestring(d: pd.Timestamp):
@@ -20,7 +21,7 @@ def datestring(d: pd.Timestamp):
 
 # fhirIdentifier returns a fhir identifier
 def fhir_identifier(code:str=None, value:str=None, system:str="urn:centraxx"):
-    print(f"fhir_identifier: {code} {value}")
+ #   print(f"fhir_identifier: {code} {value}")
     if code is None or value is None or value == "" or value == "NULL":
         raise ValueError("code and value must not be None")
     return {
@@ -69,6 +70,7 @@ def fhir_sample(category:str=None,
                  xposition:int=None, 
                  yposition:int=None, 
                  concentration=None):
+  #  print(f"fhir_sample: {category} {fhirid} {collected_date} {xposition} {yposition}")
     entry = {
         "fullUrl": f"Specimen/{fhirid}",
         "resource": {
@@ -77,7 +79,7 @@ def fhir_sample(category:str=None,
             "extension": [
                 fhir_extension(
                     "https://fhir.centraxx.de/extension/updateWithOverwrite",
-                    { "valueBoolean": False }
+                    { "valueBoolean": True }
                 ),
                 # reposition date added later
                 # location path added later
@@ -133,6 +135,19 @@ def fhir_sample(category:str=None,
         }
     }
 
+    if location_path is not None:
+        entry["resource"]["extension"].append(
+            fhir_extension(
+                    "https://fhir.centraxx.de/extension/sample/sampleLocation",
+                    { "extension": [
+                        fhir_extension(
+                            "https://fhir.centraxx.de/extension/sample/sampleLocationPath",
+                            {"valueString": location_path }
+                        )
+                    ]}
+                )
+        )
+
 
 
     if derival_date:
@@ -143,14 +158,18 @@ def fhir_sample(category:str=None,
 
     if xposition != None:
         for ext in entry['resource']['extension']:
+    #       print(f"ext: {ext}")
             if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
                 # Füge xpos am Anfang ein
+             #   print(f"xpos found, inserting xposition {xposition}")
                 ext['extension'].insert(1, fhir_extension("https://fhir.centraxx.de/extension/sample/xPosition", { "valueInteger": xposition })) 
 
     if yposition != None:
         for ext in entry['resource']['extension']:
+       #    print(f"ext: {ext}")
             if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
                 # Füge ypos als zweites ein
+              #  print(f"ypos found, inserting yposition {yposition}")
                 ext['extension'].insert(2, fhir_extension("https://fhir.centraxx.de/extension/sample/yPosition", { "valueInteger": yposition })) 
 
     # none checks for values
@@ -168,18 +187,7 @@ def fhir_sample(category:str=None,
             {"valueQuantity": concentration } 
         ))
 
-    if location_path is not None:
-        entry["resource"]["extension"].append(
-            fhir_extension(
-                    "https://fhir.centraxx.de/extension/sample/sampleLocation",
-                    { "extension": [
-                        fhir_extension(
-                            "https://fhir.centraxx.de/extension/sample/sampleLocationPath",
-                            {"valueString": location_path }
-                        )
-                    ]}
-                )
-        )
+  
     
     if reposition_date is not None:
         entry["resource"]["extension"].append(fhir_extension(
@@ -288,17 +296,13 @@ def fhir_aliquotgroup(organization_unit=None, code=None, subject_limspsn=None, r
 # genfhirid generates a fhirid from given string (e.g. sampleid)
 def genfhirid(fromstr:str):
     # Generate a deterministic ID based on the input string
-    # This ensures the same input always produces the same ID
-    if fromstr is None:
-        # Generate a random ID if no input string is provided
-        import uuid
-        return str(uuid.uuid4())
+   
+    namespace = uuid.NAMESPACE_DNS  # Use DNS namespace for UUID generation
+    if fromstr is None or fromstr == "":
+        raise ValueError("fromstr must not be None or empty")
+
+    return str(uuid.uuid5(namespace, fromstr))  # Use uuid5 for deterministic ID generation
     
-    # Use hash for a deterministic mapping from string to number
-    # We use abs to ensure positive values, and add a large number to avoid collisions with small values
-    import hashlib
-    hash_value = int(hashlib.md5(fromstr.encode()).hexdigest(), 16) % 10**10
-    return str(hash_value)
 
 # fhir_bundle packs a list of entries into a fhir bundle
 def fhir_bundle(entries:list):
