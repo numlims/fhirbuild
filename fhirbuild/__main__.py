@@ -60,6 +60,7 @@ def main():
             sys.exit(1)
     # build observations or specimen
     # write fhir observation files
+  #  print(f"type: {entries}")
     writeout(entries, args.outdir, args.type)
 
 # kick off program

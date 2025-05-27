@@ -17,13 +17,26 @@ from fhirbuild.buildhelp import *
 def csv_to_specimen_str(file) -> str:
     return json.dumps(csv_to_specimen(file))
 
+
+def add_bundle(entries: dict[str, list]) -> dict:
+    result = {}
+    for subject_id, specimens in entries.items():
+        # create a bundle for each subject_id
+        bundle = fhir_bundle(specimens)
+        result[subject_id] = bundle
+ #   print(f"Together : {result}")
+    return result
+
 # csv_to_specimen turns csv file into an array of fhir objects
 def csv_to_specimen(reader: csv.DictReader):
 
-    out = []
+
+    out: dict[str, list] = {}
     for row in reader:
-        print(row)
-        out.append(fhir_bundle([row_to_specimen(row)]))
+        if row['subject_id'] not in out:
+            out[row['subject_id']] = []
+        out[row['subject_id']].append(row_to_specimen(row))
+    out = add_bundle(out)
     return out
 
 # csv_to_patient turns csv file into array of patient fhir objects
@@ -56,7 +69,7 @@ def extract_identifiers(row: dict, prefix: str = "idc_") -> list:
             # Check if the value is not None before appending
             if row[key] is not None:
                 identifiers.append((key_without_idc_prefix, row[key]))
-    print(identifiers)  # Debugging output
+  #  print(identifiers)  # Debugging output
     return identifiers
 
 # row_to_fhir turns a csvrow to fhir
@@ -105,26 +118,37 @@ def row_to_specimen(row:dict) -> dict:
         # convert dates
         reposition_date = panda_timestamp(row['reposition_date'])
         derival_date = panda_timestamp(row['derival_date'])        # build entry
-        entry = fhir_sample(category=row['category'], fhirid=fhirid, reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=identifiers, type=row['type'], subject_id=row['subject_id'], subject_idcontainer=row['subject_idcontainer'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']), sample_receptable=row['samplereceptacle'])
+        collection_date = panda_timestamp(row['collection_date'])
+        entry = fhir_sample(category=row['category'], fhirid=fhirid, collected_date=collection_date, reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=identifiers, type=row['type'], subject_id=row['subject_id'], subject_idcontainer=row['subject_idcontainer'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']), sample_receptable=row['samplereceptacle'])
 
     return entry
 
 # intornone parses a string to int and doesn't cry when it receives none
 def intornone(s:str):
-    print(f"intornone: {s}")
+  #  print(f"intornone: {s}")
     if s == None:
         return None
     return int(s)
 
 # writeout writes an array of fhir observations to files in outdir
-def writeout(entries, outdir, type):
+def writeout(entries, outdir, type, bundle=False):
     gen_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     
-    for i, entry in enumerate(entries):
-        filename = gen_time + "_" + type + "_p" + str(i) + ".json"
-        path = os.path.join(outdir, filename)
-        with open(path, 'w', encoding='utf-8') as outf:
-            json.dump(entry, outf, indent=4, ensure_ascii=False)
+    if isinstance(entries, dict):
+        # if entries is a dict, we assume it's a bundle
+        for i, bundle_entries in enumerate(entries.values()):
+            # we assume the first entry in the bundle has the subject_id):
+            filename = gen_time + "_" + type + "_" + str(i) + ".json"
+            path = os.path.join(outdir, filename)
+            with open(path, 'w', encoding='utf-8') as outf:
+                json.dump(bundle_entries, outf, indent=4, ensure_ascii=False)
+        return  
+    else: 
+        for i, entry in enumerate(entries):
+            filename = gen_time + "_" + type + "_p" + str(i) + ".json"
+            path = os.path.join(outdir, filename)
+            with open(path, 'w', encoding='utf-8') as outf:
+                json.dump(entry, outf, indent=4, ensure_ascii=False)
 
 # row_to_observation turns a csv row to fhir
 def row_to_observation(row:dict, i):
@@ -167,11 +191,13 @@ def row_to_patient(row:dict, i):
     
     identifiers = []
 
+    fhir_id = genfhirid(row.get('idcp_fhirid', str(i)))
+
     for type, value in raw_identifiers:
         identifiers.append(fhir_identifier(code=type, value=value))
 
 
-    entry = fhir_patient(identifiers=identifiers, organization_unit=row['organization_unit'], fhirid=str(i), update_with_overwrite=update_with_overwrite)
+    entry = fhir_patient(identifiers=identifiers, organization_unit=row['organization_unit'], fhirid=fhir_id, update_with_overwrite=update_with_overwrite)
     return entry
 
 # get_update_overwrite_flag checks if the row has the update_with_overwrite flag set, returns true or false, false if not set
