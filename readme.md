@@ -2,9 +2,9 @@
 
 build fhir jsons from code or csv.
 
-usage: fhirbuild <observation|specimen|patient> <in csv> <out dir>
+usage: fhirbuild <observation|specimen|patient> <in csv> <out dir> <-d delimiter input> <-e encoding input>
 
-example: fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir
+example: fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir -d ; -e utf-8-sig
 
 ## column names
 
@@ -17,7 +17,7 @@ concentration
 concentration_unit
 derival_date
 fhirid
-id_[SAMPLEID|EXTSAMPLEID|...]
+idcs_[SAMPLEID|EXTSAMPLEID|...]
 initial_amount
 initial_unit
 location_path
@@ -51,7 +51,7 @@ subject_psn           a patient id
 patient columns:
 
 ```
-id_[PSN|...]
+idcp_[PSN|LIMSPSN...]
 study
 organization_unit
 ```
