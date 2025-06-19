@@ -11,27 +11,27 @@ example: fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir
 specimen building takes the following column names:
 
 ```
-category: [ALIQUOTGROUP|MASTER|DERIVED]
-collection_date
-concentration
-concentration_unit
-derival_date
-fhirid
-id_[SAMPLEID|EXTSAMPLEID|...]
-initial_amount
-initial_unit
-location_path
-organization_unit
-parent_fhirid
-parent_sampleid
-received_date
-reposition_date
-rest_amount
-rest_unit
-subject_limspsn
-type
-xpos
-ypos
+category: [ALIQUOTGROUP|MASTER|DERIVED]   the category of the sample
+collection_date               the collection date
+concentration                 the concentration
+concentration_unit            the unit of the concentration
+derival_date                  the date on which the sample was derived, german?
+fhirid                        the fhirid, what's that?
+id_[SAMPLEID|EXTSAMPLEID|...] one or more ids
+initial_amount                the initial amount
+initial_unit                  the initial unit
+location_path                 the location path
+organization_unit             the organization unit
+parent_fhirid                 the fhirid of the sample's parent
+parent_sampleid               the sampleid of the parent
+received_date                 the received date
+reposition_date               the reposition date
+rest_amount                   the rest amount
+rest_unit                     the unit of the rest amount
+subject_limspsn               the patient's limspsn
+type                          the sample's type
+xpos                          the x position on the rack
+ypos                          the y position on the rack
 ```
 
 todo centrifugation values
@@ -62,6 +62,7 @@ organization_unit
 build:
 
 ```
+pip install build
 python3 -m build
 ```
 
