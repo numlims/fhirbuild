@@ -12,7 +12,7 @@ def parseargs():
     parser.add_argument("incsv", help="input csv")
     parser.add_argument("outdir", help="fhir json files land here")
     parser.add_argument("-d", help="delimiter (assumed ;)", required=False)
-    parser.add_argument("--delete", help="delete these fhir resources")
+    parser.add_argument("--delete", help="delete these fhir resources", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -29,7 +29,7 @@ def main():
     
     # build observations or specimen
     if args.type == "observation":
-        entries = csv_to_observation(file, delimiter=args.d)
+        entries = csv_to_observation(file, delimiter=args.d, delete=args.delete)
     elif args.type == "specimen":
         entries = csv_to_specimen(file, delimiter=args.d)
     elif args.type == "patient":
