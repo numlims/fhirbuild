@@ -50,7 +50,7 @@ def csv_to_patient(file, delimiter=";"):
 def dataframe_to_specimen(df):
     out = []
     for row in df:
-        out.append(row_to_specimen(row))
+        out.append(fhir_bundle([row_to_specimen(row)]))
     return out
 
 # row_to_fhir turns a csvrow to fhir
