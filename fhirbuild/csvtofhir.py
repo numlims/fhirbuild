@@ -10,6 +10,7 @@ import json
 import pandas as pd
 import re
 import os
+import math
 from fhirbuild.buildhelp import *
 
 # csv_to_specimen_str turns csv file to fhir string
@@ -30,7 +31,6 @@ def add_bundle(entries: dict[str, list]) -> dict:
 # csv_to_specimen turns csv file into an array of fhir objects
 def csv_to_specimen(reader: csv.DictReader):
 
-
     out: dict[str, list] = {}
     for row in reader:
         if row['subject_id'] not in out:
@@ -42,8 +42,10 @@ def csv_to_specimen(reader: csv.DictReader):
 # csv_to_patient turns csv file into array of patient fhir objects
 def csv_to_patient(reader: csv.DictReader) -> list[dict]:
     out = []
+
     for i, row in enumerate(reader):
-        out.append(row_to_patient(row, i))
+        out.append(fhir_bundle([row_to_patient(row, i)]))
+
     return out
 
 
@@ -52,7 +54,7 @@ def csv_to_patient(reader: csv.DictReader) -> list[dict]:
 def dataframe_to_specimen(df):
     out = []
     for row in df:
-        out.append(row_to_specimen(row))
+        out.append(fhir_bundle([row_to_specimen(row)]))
     return out
 
 
@@ -115,25 +117,38 @@ def row_to_specimen(row:dict) -> dict:
         if row['rest_amount']:
             rest_amount = fhir_quantity(value=float(row['rest_amount']), unit=row['rest_unit'])
 
+
         # convert dates
         reposition_date = panda_timestamp(row['reposition_date'])
         derival_date = panda_timestamp(row['derival_date'])        # build entry
         collection_date = panda_timestamp(row['collection_date'])
-        entry = fhir_sample(category=row['category'], fhirid=fhirid, collected_date=collection_date, reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=identifiers, type=row['type'], subject_id=row['subject_id'], subject_idcontainer=row['subject_idcontainer'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']), sample_receptable=row['samplereceptacle'])
-
+        entry = fhir_sample(category=row['category'], fhirid=fhirid, collected_date=collection_date, reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=identifiers, type=row['type'], subject_id=row['subject_id'], subject_idcontainer=row['subject_idcontainer'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']), sample_receptable=row['receptacle'])
+    else:
+        # error
+        print("row needs category column with MASTER, DERIVED or ALIQUOTGROUP")
+    
     return entry
 
-# intornone parses a string to int and doesn't cry when it receives none
+# intornone parses a string to int, and letters A,B,C,... to numbers 1,2,3..., and doesn't cry when it receives none
 def intornone(s:str):
   #  print(f"intornone: {s}")
     if s == None:
         return None
+    if re.match(r"^[A-Za-z]$", s):
+        #print("match letter")
+        # convert to lower, so that you can subtract 96 from lower case 'a' and land at 1
+        s = s.lower()
+        # get the ascii number for the letter with ord() and subtract 96
+        num = ord(s) - 96
+        return num
+    #print(f"not match letter: '{s}'")
     return int(s)
 
 # writeout writes an array of fhir observations to files in outdir
 def writeout(entries, outdir, type, bundle=False):
     gen_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    
+
+    # why could entries be a dict or and array?  
     if isinstance(entries, dict):
         # if entries is a dict, we assume it's a bundle
         for i, bundle_entries in enumerate(entries.values()):
@@ -141,17 +156,21 @@ def writeout(entries, outdir, type, bundle=False):
             filename = gen_time + "_" + type + "_" + str(i) + ".json"
             path = os.path.join(outdir, filename)
             with open(path, 'w', encoding='utf-8') as outf:
-                json.dump(bundle_entries, outf, indent=4, ensure_ascii=False)
+                json.dump(bundle_entries, outf, indent=4, ensure_ascii=False) # why ensure ascii false?
         return  
     else: 
+        # how broad should the zero-place holder for the pagenumber be? (eg for 999 pages 3, for 1000 pages 4)
+        page_num_width = str(int(math.log10(len(entries))) + 1)
         for i, entry in enumerate(entries):
-            filename = gen_time + "_" + type + "_p" + str(i) + ".json"
+            fstring = "%s_%s_p%0" + page_num_width + "d.json"
+            filename = fstring % (gen_time, type, c)
+            # filename = gen_time + "_" + type + "_p" + str(i) + ".json"
             path = os.path.join(outdir, filename)
             with open(path, 'w', encoding='utf-8') as outf:
                 json.dump(entry, outf, indent=4, ensure_ascii=False)
 
 # row_to_observation turns a csv row to fhir
-def row_to_observation(row:dict, i):
+def row_to_observation(row:dict, i, delete=False):
     entry = None
 
     row = DictPath(row)
@@ -174,7 +193,7 @@ def row_to_observation(row:dict, i):
     effectivedate = panda_timestamp(row["effective_date_time"])
 
     # build the entry
-    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_psn=row['subject_psn'])
+    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_psn=row['subject_psn'], delete=delete)
 
     return entry
 
@@ -191,7 +210,7 @@ def row_to_patient(row:dict, i):
     
     identifiers = []
 
-    fhir_id = genfhirid(row.get('idcp_fhirid', str(i)))
+    fhir_id = genfhirid(row.get('fhirid', str(i)))
 
     for type, value in raw_identifiers:
         identifiers.append(fhir_identifier(code=type, value=value))
@@ -199,6 +218,7 @@ def row_to_patient(row:dict, i):
 
     entry = fhir_patient(identifiers=identifiers, organization_unit=row['organization_unit'], fhirid=fhir_id, update_with_overwrite=update_with_overwrite)
     return entry
+
 
 # get_update_overwrite_flag checks if the row has the update_with_overwrite flag set, returns true or false, false if not set
 def get_update_overwrite_flag(row):
@@ -219,7 +239,8 @@ def csv_to_observation(reader: csv.DictReader):
 
     for i, row in enumerate(rows):
         # todo put more than one entry in bundle
-        out.append(fhir_bundle([row_to_observation(row, i)]))
+        out.append(fhir_bundle([row_to_observation(row, i, delete)]))
+
 
     return out
 

@@ -1,5 +1,7 @@
 # Visual Studio Code settings
 .vscode/
+# emacs ghost files
+*~
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

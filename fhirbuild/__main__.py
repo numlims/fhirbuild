@@ -46,7 +46,7 @@ def main():
     #file = open(args.incsv, "r")
     
     dict_reader = open_csv_file(args.incsv, delimiter=args.d, encoding=args.e)
-    
+   
 
     match args.type:
         case "observation":

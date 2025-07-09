@@ -49,7 +49,7 @@ def fhir_extension(url:str, d):
 # extsampleid = fhirIdentifier(code: "EXTSAMPLEID", value: extsampleid)
 # fhirAliquot(..., identifiers: [sampleid, extsampleid], ...)
 
-# fhir_aliquot builds a fhir aliquot. all arguments are named arguments.
+# fhir_sample builds a fhir aliquot. all arguments are named arguments.
 # todo rename?
 def fhir_sample(category:str=None,
                  fhirid=None, 
@@ -219,6 +219,9 @@ def fhir_sample(category:str=None,
 
 # fhir_quantity would build a fhir quantity
 def fhir_quantity(value=None, unit=None, system: str="urn:centraxx"):
+    # convert value to number
+    if type(value) is str:
+        value = float(value)
     quant = {
         "value": value,
         "unit": unit,
@@ -227,9 +230,9 @@ def fhir_quantity(value=None, unit=None, system: str="urn:centraxx"):
     return quant
 
 # fhir_aliquotgroup would build an aliquotgroup
-def fhir_aliquotgroup(organization_unit=None, code=None, subject_limspsn=None, received_date=None, parent_sampleid=None, fhirid=None):
+def fhir_aliquotgroup(organization_unit=None, type=None, subject_limspsn=None, received_date=None, parent_sampleid=None, fhirid=None):
     entry = {
-        "fullUrl": f"Specimen/{fhirid}", 
+        "fullUrl": f"Specimen/{fhirid}",
         "resource": {
             "resourceType": "Specimen",
             "id": f"{fhirid}",
@@ -266,7 +269,7 @@ def fhir_aliquotgroup(organization_unit=None, code=None, subject_limspsn=None, r
                 "coding": [
                     {
                         "system": "urn:centraxx",
-                        "code": code
+                        "code": type
                     }
                 ]
             },
@@ -314,7 +317,7 @@ def fhir_bundle(entries:list):
     return bundle
 
 # fhir_obs builds one fhir observation
-def fhir_obs(component=[], effective_date_time:pd.Timestamp=None, fhirid:str=None, identifiers=[], method=None, methodname=None, sender:str=None, subject_psn:str=None):
+def fhir_obs(component=[], effective_date_time:pd.Timestamp=None, fhirid:str=None, identifiers=[], method=None, methodname=None, sender:str=None, subject_psn:str=None, delete:bool=False):
 
     #print("identifiers: " + str(identifiers))
     sampleid = None
@@ -330,10 +333,15 @@ def fhir_obs(component=[], effective_date_time:pd.Timestamp=None, fhirid:str=Non
     if fhirid is None:
         fhirid = genfhirid(sampleid)
 
+    # if delete is set to true, change method to delete
+    method = "POST" # write observation
+    if delete == True:
+        method = "DELETE"
+
     entry = {              
         "fullUrl": f"Observation/{fhirid}",
         "request": {
-            "method": "POST",
+            "method": f"{method}",
             "url": f"Observation/{fhirid}"
         },
         "resource": {
