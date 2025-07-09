@@ -2,9 +2,17 @@
 
 build fhir jsons from code or csv.
 
-usage: fhirbuild <observation|specimen|patient> <in csv> <out dir>
+usage: 
 
-example: fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir
+```
+fhirbuild <observation|specimen|patient> <in csv> <out dir> <-d delimiter input> <-e encoding input>
+```
+
+example: 
+
+```
+fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir -d ; -e utf-8-sig
+```
 
 ## column names
 
@@ -17,11 +25,10 @@ category: [MASTER|DERIVED]    is the sample primary (MASTER) or
 collection_date               the collection date (entnahmedatum)
 concentration                 the concentration
 concentration_unit            the unit of the concentration
-container                     ORG for primary, NUM_AliContainer for aliquot?
 derival_date                  the derival date (aufteilungsdatum) is the
                               same as "datum der ersten einlagerung"
 fhirid                        the identifier specific to fhir
-id_[SAMPLEID|EXTSAMPLEID|...] one or more ids
+idcs_[SAMPLEID|EXTSAMPLEID|...] one or more ids
 initial_amount                the initial amount
 initial_unit                  the initial unit
 location_path                 the location path
@@ -29,6 +36,7 @@ organization_unit             the organization unit
 parent_fhirid                 for an aliquot, link to the fhirid
                               of the parent aliquotgroup
 received_date                 the received date (eingangsdatum)
+receptacle                    the receptacle (probenbehaelter). becomes container.
 reposition_date               the reposition date (einlagerungsdatum)
 rest_amount                   the rest amount
 rest_unit                     the unit of the rest amount
@@ -68,9 +76,10 @@ subject_psn           a patient id
 csv input columns for patient:
 
 ```
-id_[PSN|...]
-study
+idcp_[PSN|LIMSPSN...]
+fhirid
 organization_unit
+study
 ```
 
 

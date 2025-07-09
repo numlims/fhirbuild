@@ -7,6 +7,7 @@
 
 from datetime import date
 import pandas as pd
+import uuid
 
 # dateString returns fhir-compatible date string of date
 def datestring(d: pd.Timestamp):
@@ -20,6 +21,9 @@ def datestring(d: pd.Timestamp):
 
 # fhirIdentifier returns a fhir identifier
 def fhir_identifier(code:str=None, value:str=None, system:str="urn:centraxx"):
+ #   print(f"fhir_identifier: {code} {value}")
+    if code is None or value is None or value == "" or value == "NULL":
+        raise ValueError("code and value must not be None")
     return {
         "type": {
             "coding": [
@@ -47,7 +51,26 @@ def fhir_extension(url:str, d):
 
 # fhir_sample builds a fhir aliquot. all arguments are named arguments.
 # todo rename?
-def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=None, location_path:str=None, organization_unit=None, derival_date:pd.Timestamp=None, identifiers=None, type=None, subject_limspsn=None, received_date:pd.Timestamp=None, parent_fhirid=None, collected_date:pd.Timestamp=None, initial_amount=None, rest_amount=None, container:str=None, xposition:int=None, yposition:int=None, concentration=None):
+def fhir_sample(category:str=None,
+                 fhirid=None, 
+                 reposition_date:pd.Timestamp=None, 
+                 location_path:str=None, 
+                 organization_unit=None, 
+                 derival_date:pd.Timestamp=None, 
+                 identifiers=None, 
+                 type=None, 
+                 subject_id=None, 
+                 subject_idcontainer=None,
+                 received_date:pd.Timestamp=None, 
+                 parent_fhirid=None, 
+                 collected_date:pd.Timestamp=None, 
+                 initial_amount=None, 
+                 rest_amount=None, 
+                 sample_receptable=None, 
+                 xposition:int=None, 
+                 yposition:int=None, 
+                 concentration=None):
+  #  print(f"fhir_sample: {category} {fhirid} {collected_date} {xposition} {yposition}")
     entry = {
         "fullUrl": f"Specimen/{fhirid}",
         "resource": {
@@ -56,7 +79,7 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
             "extension": [
                 fhir_extension(
                     "https://fhir.centraxx.de/extension/updateWithOverwrite",
-                    { "valueBoolean": False }
+                    { "valueBoolean": True }
                 ),
                 # reposition date added later
                 # location path added later
@@ -69,10 +92,6 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
                         }
                     }
                 }),
-                fhir_extension(
-                    "https://fhir.centraxx.de/extension/sample/derivalDate",
-                    { "valueDateTime": datestring(derival_date) }
-                ),
                 fhir_extension(
                     "https://fhir.centraxx.de/extension/sampleCategory",
                     {
@@ -89,16 +108,10 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
                 "coding": [
                     # type (material) added later
                 ]
-            },
-            "subject": {
-                "identifier": fhir_identifier(code="LIMSPSN", value=subject_limspsn)
+            },            "subject": {
+                "identifier": fhir_identifier(code=subject_idcontainer, value=subject_id)
             },
             #"receivedTime": received_time # wird unten gesetzt
-            "parent": [
-                {
-                    "reference": f"Specimen/{parent_fhirid}"
-                }
-            ],
             "collection": {
                 # "collectedDateTime": collected_date, # wird unten gesetzt
                 # "quantity": initial_amount # wird unten gesetzt
@@ -108,7 +121,7 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
                     "identifier": [
                         {
                             "system": "urn:centraxx",
-                            "value": container
+                            "value": sample_receptable
                         }
                     ],
                     # "capacity": capacity, # wird nicht gesetzt, hat keinen einfluss auf cxx
@@ -122,26 +135,6 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
         }
     }
 
-    if xposition != None:
-        for ext in entry['resource']['extension']:
-            if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
-                # Füge xpos am Anfang ein
-                ext['extension'].insert(1, fhir_extension("https://fhir.centraxx.de/extension/sample/xPosition", { "valueInteger": xposition })) 
-
-    if yposition != None:
-        for ext in entry['resource']['extension']:
-            if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
-                # Füge ypos als zweites ein
-                ext['extension'].insert(2, fhir_extension("https://fhir.centraxx.de/extension/sample/yPosition", { "valueInteger": yposition })) 
-
-    # none checks for values
-    
-    if concentration is not None:
-        entry["resource"]["extension"].append(fhir_extension(
-            "https://fhir.centraxx.de/extension/sample/concentration",
-            {"valueQuantity": concentration } 
-        ))
-
     if location_path is not None:
         entry["resource"]["extension"].append(
             fhir_extension(
@@ -154,6 +147,47 @@ def fhir_sample(category:str=None, fhirid=None, reposition_date:pd.Timestamp=Non
                     ]}
                 )
         )
+
+
+
+    if derival_date:
+        entry["resource"]["extension"].append(fhir_extension(
+            "https://fhir.centraxx.de/extension/sample/derivalDate",
+            { "valueDateTime": datestring(derival_date) }
+        ))
+
+    if xposition != None:
+        for ext in entry['resource']['extension']:
+    #       print(f"ext: {ext}")
+            if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
+                # Füge xpos am Anfang ein
+             #   print(f"xpos found, inserting xposition {xposition}")
+                ext['extension'].insert(1, fhir_extension("https://fhir.centraxx.de/extension/sample/xPosition", { "valueInteger": xposition })) 
+
+    if yposition != None:
+        for ext in entry['resource']['extension']:
+       #    print(f"ext: {ext}")
+            if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
+                # Füge ypos als zweites ein
+              #  print(f"ypos found, inserting yposition {yposition}")
+                ext['extension'].insert(2, fhir_extension("https://fhir.centraxx.de/extension/sample/yPosition", { "valueInteger": yposition })) 
+
+    # none checks for values
+    
+    if parent_fhirid is not None:
+        entry["resource"]["parent"] = [
+            {
+                "reference": f"Specimen/{parent_fhirid}"
+            }
+        ]
+        
+    if concentration is not None:
+        entry["resource"]["extension"].append(fhir_extension(
+            "https://fhir.centraxx.de/extension/sample/concentration",
+            {"valueQuantity": concentration } 
+        ))
+
+  
     
     if reposition_date is not None:
         entry["resource"]["extension"].append(fhir_extension(
@@ -264,9 +298,14 @@ def fhir_aliquotgroup(organization_unit=None, type=None, subject_limspsn=None, r
 
 # genfhirid generates a fhirid from given string (e.g. sampleid)
 def genfhirid(fromstr:str):
-    # what does this need to do?
-    #return pd.to_numeric((fromstr.factorize()[0] + 1 ) + 9999)
-    return None
+    # Generate a deterministic ID based on the input string
+   
+    namespace = uuid.NAMESPACE_DNS  # Use DNS namespace for UUID generation
+    if fromstr is None or fromstr == "":
+        raise ValueError("fromstr must not be None or empty")
+
+    return str(uuid.uuid5(namespace, fromstr))  # Use uuid5 for deterministic ID generation
+    
 
 # fhir_bundle packs a list of entries into a fhir bundle
 def fhir_bundle(entries:list):
@@ -400,7 +439,7 @@ def fhir_obs(component=[], effective_date_time:pd.Timestamp=None, fhirid:str=Non
 
 
 # fhir_patient baut einen patienten fhir aus werten
-def fhir_patient(psn:str=None, study:str=None, organization_unit:str=None, fhirid:str=None):
+def fhir_patient(identifiers:list=None, organization_unit:str=None, fhirid:str=None, update_with_overwrite:bool=True):
 
     entry = {
    "resourceType": "Bundle",
@@ -410,28 +449,15 @@ def fhir_patient(psn:str=None, study:str=None, organization_unit:str=None, fhiri
     "resource": {
       "resourceType": "Patient",
       "id": fhirid,
-      "extension": [
-        fhir_extension(
-            "https://fhir.centraxx.de/extension/sample/organizationUnit",
-            {
-                "valueReference": {
-                "identifier": {
-                    "value": organization_unit
-                }
-            }
-        })],
-       "identifier": [ {
-          "type": {
-            "coding": [ {
-              "system": "urn:centraxx",
-              "code": "MPI"
-            } ]
-          },
-        "value": psn
-       } ],
+        "extension": [{
+            "url": "https://fhir.centraxx.de/extension/updateWithOverwrite",
+            "valueBoolean": update_with_overwrite
+        }],
+       "identifier": identifiers
+       ,
        "generalPractitioner": [ {
          "identifier": {
-          "value": study # study?
+          "value": organization_unit
          }
         } ]
         },
