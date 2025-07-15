@@ -38,6 +38,8 @@ xpos                          the x position on the rack
 ypos                          the y position on the rack
 ```
 
+todo centrifugation values
+
 csv input column names for aliquotgroup:
 
 ```
@@ -51,18 +53,18 @@ subject_limspsn               the limspsn of the patient
 type                          the sample's type (material, CIT etc)
 ```
 
-todo centrifugation values
-
 csv input column names for observation:
 
 ```
-cmp_[...]            put your messwerte codes here, one column per code, each prefixed with 'cmp_' (for component field in fhir)
+cmp_[...]                     put your messwerte codes here, one column
+                              per code, each prefixed with 'cmp_' (for component
+                              field in fhir)
 effective_date_time           sollte das datetime heissen?
-id_[SAMPLEID|EXTSAMPLEID|...]  a sample id
-methodname            the messprofile name
-method                the messprofile code
-sender                the EINS_CODE
-subject_psn           a patient id
+id_[SAMPLEID|EXTSAMPLEID|...] a sample id
+methodname                    the messprofile name
+method                        the messprofile code
+sender                        the EINS_CODE
+subject_psn                   a patient id
 ```
 
 csv input columns for patient:

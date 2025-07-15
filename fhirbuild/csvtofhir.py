@@ -88,12 +88,32 @@ def row_to_specimen(row:dict):
         if row['rest_amount'] != None:
             rest_amount = fhir_quantity(value=row['rest_amount'], unit=row['rest_unit'])
 
-        # convert dates
+        # convert dates specific to primary or aliquot (not in aliquotgroup)
+        # received_date done before
+        collection_date = panda_timestamp(row['collection_date'])
+        derival_date = panda_timestamp(row['derival_date'])        
         reposition_date = panda_timestamp(row['reposition_date'])
-        derival_date = panda_timestamp(row['derival_date'])
 
         # build entry
-        entry = fhir_sample(category=row['category'], container=row["container"], fhirid=row['fhirid'], reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=[sampleid], type=row['type'], subject_limspsn=row['subject_limspsn'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']))
+        entry = fhir_sample(
+            category=row['category'],
+            collected_date=collection_date,
+            container=row["container"],
+            derival_date=derival_date,
+            identifiers=[sampleid],
+            fhirid=row['fhirid'],
+            initial_amount=initial_amount,
+            location_path=row['location_path'],
+            organization_unit=row['organization_unit'],
+            parent_fhirid=row['parent_fhirid'],
+            received_date=received_date,
+            reposition_date=reposition_date,
+            rest_amount=rest_amount,
+            subject_limspsn=row['subject_limspsn'],
+            type=row['type'],
+            xposition=intornone(row['xpos']),
+            yposition=intornone(row['ypos'])
+        )
 
         #print("entry: " + entry)
     else:
