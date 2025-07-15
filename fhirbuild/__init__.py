@@ -50,7 +50,6 @@ def fhir_extension(url:str, d):
 # fhirAliquot(..., identifiers: [sampleid, extsampleid], ...)
 
 # fhir_sample builds a fhir aliquot. all arguments are named arguments.
-# todo rename?
 def fhir_sample(category:str=None,
                  fhirid=None, 
                  reposition_date:pd.Timestamp=None, 
@@ -66,7 +65,7 @@ def fhir_sample(category:str=None,
                  collected_date:pd.Timestamp=None, 
                  initial_amount=None, 
                  rest_amount=None, 
-                 sample_receptable=None, 
+                 receptacle=None, 
                  xposition:int=None, 
                  yposition:int=None, 
                  concentration=None):
@@ -121,7 +120,7 @@ def fhir_sample(category:str=None,
                     "identifier": [
                         {
                             "system": "urn:centraxx",
-                            "value": sample_receptable
+                            "value": receptacle
                         }
                     ],
                     # "capacity": capacity, # wird nicht gesetzt, hat keinen einfluss auf cxx
@@ -197,7 +196,8 @@ def fhir_sample(category:str=None,
 
     if received_date is not None:
         entry["resource"]["receivedTime"] = datestring(received_date)
-        
+
+    print("collected_date: " + str(collected_date))
     if collected_date is not None:
         entry["resource"]["collection"]["collectedDateTime"] = datestring(collected_date)
 
@@ -230,7 +230,14 @@ def fhir_quantity(value=None, unit=None, system: str="urn:centraxx"):
     return quant
 
 # fhir_aliquotgroup would build an aliquotgroup
-def fhir_aliquotgroup(organization_unit=None, type=None, subject_limspsn=None, received_date=None, parent_sampleid=None, fhirid=None):
+def fhir_aliquotgroup(
+        fhirid=None,        
+        organization_unit=None,
+        parent_sampleid=None,
+        received_date=None,
+        subject_limspsn=None,
+        type=None
+):
     entry = {
         "fullUrl": f"Specimen/{fhirid}",
         "resource": {
@@ -317,7 +324,17 @@ def fhir_bundle(entries:list):
     return bundle
 
 # fhir_obs builds one fhir observation
-def fhir_obs(component=[], effective_date_time:pd.Timestamp=None, fhirid:str=None, identifiers=[], method=None, methodname=None, sender:str=None, subject_psn:str=None, delete:bool=False):
+def fhir_obs(
+        component=[],
+        delete:bool=False,
+        effective_date_time:pd.Timestamp=None,
+        fhirid:str=None,
+        identifiers=[],
+        method=None,
+        methodname=None,
+        sender:str=None,
+        subject_psn:str=None
+):
 
     #print("identifiers: " + str(identifiers))
     sampleid = None

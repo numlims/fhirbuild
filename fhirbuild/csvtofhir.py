@@ -118,11 +118,14 @@ def row_to_specimen(row:dict) -> dict:
             rest_amount = fhir_quantity(value=float(row['rest_amount']), unit=row['rest_unit'])
 
 
-        # convert dates
+        # convert dates specific to primary or aliquot (not in aliquotgroup)
+        # received_date done before
+        collection_date = panda_timestamp(row['collection_date'])
+        derival_date = panda_timestamp(row['derival_date'])        
         reposition_date = panda_timestamp(row['reposition_date'])
         derival_date = panda_timestamp(row['derival_date'])        # build entry
         collection_date = panda_timestamp(row['collection_date'])
-        entry = fhir_sample(category=row['category'], fhirid=fhirid, collected_date=collection_date, reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=identifiers, type=row['type'], subject_id=row['subject_id'], subject_idcontainer=row['subject_idcontainer'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']), sample_receptable=row['receptacle'])
+        entry = fhir_sample(category=row['category'], fhirid=fhirid, collected_date=collection_date, reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=identifiers, type=row['type'], subject_id=row['subject_id'], subject_idcontainer=row['subject_idcontainer'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']), receptacle=row['receptacle'])
     else:
         # error
         print("row needs category column with MASTER, DERIVED or ALIQUOTGROUP")
