@@ -350,15 +350,13 @@ def fhir_obs(
     if fhirid is None:
         fhirid = genfhirid(sampleid)
 
-    # if delete is set to true, change method to delete
-    method = "POST" # write observation
-    if delete == True:
-        method = "DELETE"
+    # if delete is set to true, change request method to delete
+    request_type = "DELETE" if delete else "POST"
 
     entry = {              
         "fullUrl": f"Observation/{fhirid}",
         "request": {
-            "method": f"{method}",
+            "method": f"{request_type}",
             "url": f"Observation/{fhirid}"
         },
         "resource": {

@@ -166,7 +166,7 @@ def writeout(entries, outdir, type, bundle=False):
         page_num_width = str(int(math.log10(len(entries))) + 1)
         for i, entry in enumerate(entries):
             fstring = "%s_%s_p%0" + page_num_width + "d.json"
-            filename = fstring % (gen_time, type, c)
+            filename = fstring % (gen_time, type, i)
             # filename = gen_time + "_" + type + "_p" + str(i) + ".json"
             path = os.path.join(outdir, filename)
             with open(path, 'w', encoding='utf-8') as outf:
@@ -213,7 +213,7 @@ def row_to_observation(row:dict, i, delete=False):
     effectivedate = panda_timestamp(row["effective_date_time"])
 
     # build the entry
-    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'] subject_psn=subject_psn, subject_psn_type=subject_psn_type, delete=delete)
+    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], subject_psn=subject_psn, subject_psn_type=subject_psn_type, delete=delete)
 
     return entry
 
