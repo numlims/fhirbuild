@@ -332,7 +332,8 @@ def fhir_obs(
         identifiers=[],
         method=None,
         methodname=None,
-        subject_psn:str=None
+        subject_psn:str=None,
+        subject_psn_type:str="LIMSPSN"
 ):
 
     #print("identifiers: " + str(identifiers))
@@ -385,7 +386,7 @@ def fhir_obs(
                         "coding": [
                             {
                                 "system": "urn:centraxx",
-                                "code": "LIMSPSN"
+                                "code": subject_psn_type
                             }
                         ]
                     },

@@ -181,6 +181,16 @@ def row_to_observation(row:dict, i, delete=False):
     # gather the components (columns prefixed by 'cmp_') and sampleids (columns prefixed by 'id_') for this row into one array each
     comps = [] # array of key value pairs
     ids = [] # array of key value pairs
+    
+    subject_psn = ""
+    subject_psn_type = "LIMSPSN"  # default type for subject_psn
+
+    
+    if 'subject_psn' in row.keys():
+        subject_psn = row['subject_psn']
+        subject_psn_type = 'LIMSPSN'
+    
+
     for key in row.keys():
         # are we at a component column
         if re.match("^cmp_", key):
@@ -192,11 +202,18 @@ def row_to_observation(row:dict, i, delete=False):
             # strip the idc_ prefix and remember
             withoutprefix = re.sub(r"^id_", "", key)
             ids.append((withoutprefix, row[key]))
+        if re.match("^idcp_", key):
+            # strip the idcp_ prefix and remember
+            withoutprefix = re.sub(r"^idcp_", "", key)
+            subject_psn = row[key]
+            subject_psn_type = withoutprefix
+        
+        
 
     effectivedate = panda_timestamp(row["effective_date_time"])
 
     # build the entry
-    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'] subject_psn=row['subject_psn'], delete=delete)
+    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'] subject_psn=subject_psn, subject_psn_type=subject_psn_type, delete=delete)
 
     return entry
 
