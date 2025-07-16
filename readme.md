@@ -71,8 +71,8 @@ effective_date_time           sollte das datetime heissen?
 id_[SAMPLEID|EXTSAMPLEID|...] a sample id
 methodname                    the messprofile name
 method                        the messprofile code
-sender                        the EINS_CODE
 subject_psn                   a patient id
+idcp_<id_conaintertype>       a patient id, column name contains cxx_idcontainertype to identify the subject 
 ```
 
 csv input columns for patient:
