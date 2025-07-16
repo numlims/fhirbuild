@@ -196,7 +196,7 @@ def row_to_observation(row:dict, i, delete=False):
     effectivedate = panda_timestamp(row["effective_date_time"])
 
     # build the entry
-    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_psn=row['subject_psn'], delete=delete)
+    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'] subject_psn=row['subject_psn'], delete=delete)
 
     return entry
 
@@ -242,6 +242,9 @@ def csv_to_observation(reader: csv.DictReader):
 
     for i, row in enumerate(rows):
         # todo put more than one entry in bundle
+
+        delete = row.get('delete', False)
+
         out.append(fhir_bundle([row_to_observation(row, i, delete)]))
 
 

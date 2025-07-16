@@ -332,7 +332,6 @@ def fhir_obs(
         identifiers=[],
         method=None,
         methodname=None,
-        sender:str=None,
         subject_psn:str=None
 ):
 
@@ -438,18 +437,7 @@ def fhir_obs(
         }
         entry["resource"]["component"].append(comp)
 
-
-    entry["resource"]["component"].append({
-    "code": {
-        "coding": [
-            {
-                "system": "urn:centraxx",
-                "code": "EINS_CODE"
-            }
-        ]
-    },
-    "valueString": sender
-    })
+  
 
     return entry
 
