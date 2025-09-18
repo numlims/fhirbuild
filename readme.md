@@ -46,9 +46,8 @@ xpos                          the x position on the rack
 ypos                          the y position on the rack
 ```
 
-todo centrifugation values
-
-csv input column names for aliquotgroup:
+aliquot groups are created with a subset of the columns of primary and
+derived:
 
 ```
 category: ALIQUOTGROUP        the category of the sample
