@@ -96,7 +96,7 @@ def row_to_specimen(row:dict) -> dict:
     received_date = panda_timestamp(row['received_date'])
 
     if row['category'] == "ALIQUOTGROUP":
-        entry = fhir_aliquotgroup(organization_unit=row['organization_unit'], code=row['code'], subject_limspsn=row['subject_limspsn'], received_date=received_date, parent_sampleid=row['parent_sampleid'], fhirid=fhirid) # todo pass args
+        entry = fhir_aliquotgroup(organization_unit=row['organization_unit'], type=row['type'], subject_id=row['subject_id'], received_date=received_date, parent_sampleid=row['parent_sampleid'], fhirid=fhirid) # todo pass args
 
     elif row['category'] == "MASTER" or row['category'] == "DERIVED":
 
@@ -166,7 +166,7 @@ def writeout(entries, outdir, type, bundle=False):
         page_num_width = str(int(math.log10(len(entries))) + 1)
         for i, entry in enumerate(entries):
             fstring = "%s_%s_p%0" + page_num_width + "d.json"
-            filename = fstring % (gen_time, type, c)
+            filename = fstring % (gen_time, type, i)
             # filename = gen_time + "_" + type + "_p" + str(i) + ".json"
             path = os.path.join(outdir, filename)
             with open(path, 'w', encoding='utf-8') as outf:
@@ -188,15 +188,15 @@ def row_to_observation(row:dict, i, delete=False):
             withoutprefix = re.sub(r"^cmp_", "", key)
             comps.append((withoutprefix, row[key]))
         # are we at a sampleid column
-        if re.match("^id_", key):
-            # strip the idc_ prefix and remember
-            withoutprefix = re.sub(r"^id_", "", key)
+        if re.match("^idcs_", key):
+            # strip the idcs_ prefix and remember
+            withoutprefix = re.sub(r"^idcs_", "", key)
             ids.append((withoutprefix, row[key]))
 
     effectivedate = panda_timestamp(row["effective_date_time"])
 
     # build the entry
-    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_psn=row['subject_psn'], delete=delete)
+    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_id=row['subject_id'], delete=delete)
 
     return entry
 
@@ -242,7 +242,7 @@ def csv_to_observation(reader: csv.DictReader):
 
     for i, row in enumerate(rows):
         # todo put more than one entry in bundle
-        out.append(fhir_bundle([row_to_observation(row, i, delete)]))
+        out.append(fhir_bundle([row_to_observation(row, i)]))
 
 
     return out

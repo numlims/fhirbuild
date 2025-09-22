@@ -22,8 +22,10 @@ def datestring(d: pd.Timestamp):
 # fhirIdentifier returns a fhir identifier
 def fhir_identifier(code:str=None, value:str=None, system:str="urn:centraxx"):
  #   print(f"fhir_identifier: {code} {value}")
-    if code is None or value is None or value == "" or value == "NULL":
-        raise ValueError("code and value must not be None")
+    if code is None:
+        raise ValueError("code for fhir identifier is None")
+    if  value is None or value == "" or value == "NULL":
+        raise ValueError(f"value for fhir identifier is '{value}'")
     return {
         "type": {
             "coding": [
@@ -235,7 +237,7 @@ def fhir_aliquotgroup(
         organization_unit=None,
         parent_sampleid=None,
         received_date=None,
-        subject_limspsn=None,
+        subject_id=None,
         type=None
 ):
     entry = {
@@ -281,7 +283,7 @@ def fhir_aliquotgroup(
                 ]
             },
             "subject": {
-                "identifier": fhir_identifier(code="LIMSPSN", value=subject_limspsn)
+                "identifier": fhir_identifier(code="LIMSPSN", value=subject_id)
             },
             #"receivedTime": wird speater befuellt
             "parent": [
@@ -333,7 +335,7 @@ def fhir_obs(
         method=None,
         methodname=None,
         sender:str=None,
-        subject_psn:str=None
+        subject_id:str=None
 ):
 
     #print("identifiers: " + str(identifiers))
@@ -390,7 +392,7 @@ def fhir_obs(
                             }
                         ]
                     },
-                    "value": subject_psn
+                    "value": subject_id
                 }
             },
             "effectiveDateTime": datestring(effective_date_time),

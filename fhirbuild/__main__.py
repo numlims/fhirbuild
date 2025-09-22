@@ -44,8 +44,12 @@ def main():
     # rows = [row for row in reader]
 
     #file = open(args.incsv, "r")
+
+    delimiter = ";"
+    if args.d != None:
+        delimiter = args.d
     
-    dict_reader = open_csv_file(args.incsv, delimiter=args.d, encoding=args.e)
+    dict_reader = open_csv_file(args.incsv, delimiter=delimiter, encoding=args.e)
    
 
     match args.type:
