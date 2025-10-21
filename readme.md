@@ -19,14 +19,15 @@ fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir -d ; -e utf-8-sig
 csv input column names for building an primary (master) or aliquot
 (derived) specimen:
 
+| csv column | comment |
+| --- | --- |
+| category: [MASTER\|DERIVED] | is the sample primary (MASTER) or aliquot (DERIVED)? |
+| collection_date | the collection date (entnahmedatum) |
+| concentration | the concentration |
+| concentration_unit | the unit of the concentration |
+| derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
+
 ```
-category: [MASTER|DERIVED]    is the sample primary (MASTER) or
-                              aliquot (DERIVED)?
-collection_date               the collection date (entnahmedatum)
-concentration                 the concentration
-concentration_unit            the unit of the concentration
-derival_date                  the derival date (aufteilungsdatum) is the
-                              same as "datum der ersten einlagerung"
 fhirid                        the identifier specific to fhir
 idcs_[SAMPLEID|EXTSAMPLEID|...] one or more ids
 initial_amount                the initial amount
@@ -40,15 +41,14 @@ receptacle                    the receptacle (probenbehaelter). becomes containe
 reposition_date               the reposition date (einlagerungsdatum)
 rest_amount                   the rest amount
 rest_unit                     the unit of the rest amount
-subject_limspsn               the limspsn of the patient
+subject_id                    the limspsn of the patient
 type                          the sample's type (material, CIT etc)
 xpos                          the x position on the rack
 ypos                          the y position on the rack
 ```
 
-todo centrifugation values
-
-csv input column names for aliquotgroup:
+aliquot groups are created with a subset of the columns of primary and
+derived:
 
 ```
 category: ALIQUOTGROUP        the category of the sample
@@ -57,7 +57,7 @@ organization_unit             the organization unit
 parent_sampleid               for an aliquotgroup, link to the sampleid
                               of the group's parent primary sample
 received_date                 the received date (eingangsdatum)
-subject_limspsn               the limspsn of the patient
+subject_id                    the limspsn of the patient
 type                          the sample's type (material, CIT etc)
 ```
 
@@ -68,11 +68,11 @@ cmp_[...]                     put your messwerte codes here, one column
                               per code, each prefixed with 'cmp_' (for component
                               field in fhir)
 effective_date_time           sollte das datetime heissen?
-id_[SAMPLEID|EXTSAMPLEID|...] a sample id
+idcs_[SAMPLEID|EXTSAMPLEID|...] a sample id
 methodname                    the messprofile name
 method                        the messprofile code
 sender                        the EINS_CODE
-subject_psn                   a patient id
+subject_id                    a patient id
 ```
 
 csv input columns for patient:

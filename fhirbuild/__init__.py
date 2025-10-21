@@ -9,8 +9,9 @@ from datetime import date
 import pandas as pd
 import uuid
 
-# dateString returns fhir-compatible date string of date
+
 def datestring(d: pd.Timestamp):
+    """dateString returns fhir-compatible date string of date."""    
     if d == None: 
         return None
     date_str_format = d.strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -19,11 +20,14 @@ def datestring(d: pd.Timestamp):
     result = date_parts[0] + "+" + date_part_tz
     return result
 
-# fhirIdentifier returns a fhir identifier
+
 def fhir_identifier(code:str=None, value:str=None, system:str="urn:centraxx"):
+    """ fhirIdentifier returns a fhir identifier."""
  #   print(f"fhir_identifier: {code} {value}")
-    if code is None or value is None or value == "" or value == "NULL":
-        raise ValueError("code and value must not be None")
+    if code is None:
+        raise ValueError("code for fhir identifier is None")
+    if  value is None or value == "" or value == "NULL":
+        raise ValueError(f"value for fhir identifier is '{value}'")
     return {
         "type": {
             "coding": [
@@ -36,8 +40,8 @@ def fhir_identifier(code:str=None, value:str=None, system:str="urn:centraxx"):
         "value": value
     }
 
-# fhir_extension returns a extension with url and puts everything from dict d in it
 def fhir_extension(url:str, d):
+    """fhir_extension returns a extension with url and puts everything from dict d in it."""
     ext = {"url": url}
     for key in d:
         ext[key] = d[key]
@@ -49,7 +53,7 @@ def fhir_extension(url:str, d):
 # extsampleid = fhirIdentifier(code: "EXTSAMPLEID", value: extsampleid)
 # fhirAliquot(..., identifiers: [sampleid, extsampleid], ...)
 
-# fhir_sample builds a fhir aliquot. all arguments are named arguments.
+
 def fhir_sample(category:str=None,
                  fhirid=None, 
                  reposition_date:pd.Timestamp=None, 
@@ -69,6 +73,7 @@ def fhir_sample(category:str=None,
                  xposition:int=None, 
                  yposition:int=None, 
                  concentration=None):
+    """fhir_sample builds a fhir aliquot. all arguments are named arguments."""
   #  print(f"fhir_sample: {category} {fhirid} {collected_date} {xposition} {yposition}")
     entry = {
         "fullUrl": f"Specimen/{fhirid}",
@@ -217,8 +222,8 @@ def fhir_sample(category:str=None,
 
     return entry
 
-# fhir_quantity would build a fhir quantity
 def fhir_quantity(value=None, unit=None, system: str="urn:centraxx"):
+    """fhir_quantity would build a fhir quantity."""
     # convert value to number
     if type(value) is str:
         value = float(value)
@@ -229,15 +234,15 @@ def fhir_quantity(value=None, unit=None, system: str="urn:centraxx"):
     }
     return quant
 
-# fhir_aliquotgroup would build an aliquotgroup
 def fhir_aliquotgroup(
         fhirid=None,        
         organization_unit=None,
         parent_sampleid=None,
         received_date=None,
-        subject_limspsn=None,
+        subject_id=None,
         type=None
 ):
+    """fhir_aliquotgroup would build an aliquotgroup."""
     entry = {
         "fullUrl": f"Specimen/{fhirid}",
         "resource": {
@@ -281,7 +286,7 @@ def fhir_aliquotgroup(
                 ]
             },
             "subject": {
-                "identifier": fhir_identifier(code="LIMSPSN", value=subject_limspsn)
+                "identifier": fhir_identifier(code="LIMSPSN", value=subject_id)
             },
             #"receivedTime": wird speater befuellt
             "parent": [
@@ -303,8 +308,9 @@ def fhir_aliquotgroup(
 
     return entry
 
-# genfhirid generates a fhirid from given string (e.g. sampleid)
+
 def genfhirid(fromstr:str):
+    """genfhirid generates a fhirid from given string (e.g. sampleid)."""
     # Generate a deterministic ID based on the input string
    
     namespace = uuid.NAMESPACE_DNS  # Use DNS namespace for UUID generation
@@ -314,8 +320,8 @@ def genfhirid(fromstr:str):
     return str(uuid.uuid5(namespace, fromstr))  # Use uuid5 for deterministic ID generation
     
 
-# fhir_bundle packs a list of entries into a fhir bundle
 def fhir_bundle(entries:list):
+    """fhir_bundle packs a list of entries into a fhir bundle."""
     bundle = {
     "resourceType": "Bundle",
     "type": "transaction",
@@ -323,7 +329,6 @@ def fhir_bundle(entries:list):
     }
     return bundle
 
-# fhir_obs builds one fhir observation
 def fhir_obs(
         component=[],
         delete:bool=False,
@@ -333,9 +338,9 @@ def fhir_obs(
         method=None,
         methodname=None,
         sender:str=None,
-        subject_psn:str=None
+        subject_id:str=None
 ):
-
+    """fhir_obs builds one fhir observation."""
     #print("identifiers: " + str(identifiers))
     sampleid = None
     # get the sampleid
@@ -390,7 +395,7 @@ def fhir_obs(
                             }
                         ]
                     },
-                    "value": subject_psn
+                    "value": subject_id
                 }
             },
             "effectiveDateTime": datestring(effective_date_time),
@@ -455,8 +460,8 @@ def fhir_obs(
 
 
 
-# fhir_patient baut einen patienten fhir aus werten
 def fhir_patient(identifiers:list=None, organization_unit:str=None, fhirid:str=None, update_with_overwrite:bool=True):
+    """fhir_patient baut einen patienten."""
 
     entry = {
    "resourceType": "Bundle",
