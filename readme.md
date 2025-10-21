@@ -19,14 +19,15 @@ fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir -d ; -e utf-8-sig
 csv input column names for building an primary (master) or aliquot
 (derived) specimen:
 
+| csv column | comment |
+| --- | --- |
+| category: [MASTER\|DERIVED] | is the sample primary (MASTER) or aliquot (DERIVED)? |
+| collection_date | the collection date (entnahmedatum) |
+| concentration | the concentration |
+| concentration_unit | the unit of the concentration |
+| derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
+
 ```
-category: [MASTER|DERIVED]    is the sample primary (MASTER) or
-                              aliquot (DERIVED)?
-collection_date               the collection date (entnahmedatum)
-concentration                 the concentration
-concentration_unit            the unit of the concentration
-derival_date                  the derival date (aufteilungsdatum) is the
-                              same as "datum der ersten einlagerung"
 fhirid                        the identifier specific to fhir
 idcs_[SAMPLEID|EXTSAMPLEID|...] one or more ids
 initial_amount                the initial amount

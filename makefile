@@ -1,6 +1,9 @@
 # name
 name = fhirbuild
 
+docdir = ~/numlims.github.io/fhirbuild/
+docmake = ~/numlims.github.io
+
 # get the version from github tag
 # delete the v from the version tag cause python build seems to strip it as well
 version = $(shell git tag | tail -1 | tr -d v)
@@ -13,7 +16,12 @@ install:
 	pip install "./dist/${name}-${version}-py3-none-any.whl" --no-deps --force-reinstall
 
 doc:
-	pdoc --html "${name} --force
+	pdoc "./${name}" -o html
+
+doc-publish:
+	make doc
+	cp -r html/* ${docdir}
+	cd ${docmake} && make publish
 
 publish:
 	make

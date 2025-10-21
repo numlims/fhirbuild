@@ -5,8 +5,9 @@ import argparse
 import csv
 from fhirbuild.csvtofhir import csv_to_specimen, csv_to_observation, csv_to_patient, writeout
 
-# parseargs parses command line arguments
+
 def parseargs():
+    """parseargs parses command line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument("type", help="observation or specimen or patient")
     parser.add_argument("incsv", help="input csv")
@@ -34,9 +35,9 @@ def open_csv_file(filename, delimiter=";", encoding="utf-8"):
         sys.exit(1)
 
 
-# main turns csv from file to fhir
-def main():
 
+def main():
+    """main turns csv from file to fhir."""
     args = parseargs()
 
     # read from stdin
