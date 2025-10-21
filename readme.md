@@ -27,7 +27,7 @@ csv input column names for building an primary (master) or aliquot
 | concentration_unit | the unit of the concentration |
 | derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
 | fhirid | the identifier specific to fhir |
-| idcs_[SAMPLEID\|EXTSAMPLEID|...] | one or more ids |
+| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | one or more ids |
 | initial_amount | the initial amount |
 | initial_unit | the initial unit |
 | location_path | the location path |
@@ -62,7 +62,7 @@ csv input column names for observation:
 | --- | --- |
 | cmp_[...] | put your messwerte codes here, one column per code, each prefixed with 'cmp_' (for the component field in fhir) |
 | effective_date_time | sollte das datetime heissen? |
-| idcs_[SAMPLEID\|EXTSAMPLEID|...] | a sample id |
+| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | a sample id |
 | methodname | the messprofile name |
 | method | the messprofile code |
 | sender | the EINS_CODE |
