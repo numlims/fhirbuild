@@ -58,9 +58,13 @@ derived:
 
 csv input column names for observation:
 
+additionally pass the --delim-cmp flag for the delimiter of MULTI and CATALOG cmp values.
+
 | csv column | comment |
 | --- | --- |
-| cmp_[...] | put your messwerte codes here, one column per code, each prefixed with 'cmp_' (for the component field in fhir) |
+| cmp_[i]_type | the type of the ith component. BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. |
+| cmp_[i]_value | the value of the ith component. |
+| cmp_[i]_code | the messparam code of the ith component. |
 | effective_date_time | sollte das datetime heissen? |
 | idcs_[SAMPLEID\|EXTSAMPLEID\|...] | a sample id |
 | methodname | the messprofile name |

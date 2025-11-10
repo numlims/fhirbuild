@@ -3,8 +3,8 @@
 import sys
 import argparse
 import csv
-from fhirbuild.csvtofhir import csv_to_specimen, csv_to_observation, csv_to_patient, writeout
-
+from fhirbuild.csvtofhir import csv_to_specimen, csv_to_observation, csv_to_patient
+from fhirbuild import writeout
 
 def parseargs():
     """parseargs parses command line arguments."""
@@ -13,6 +13,7 @@ def parseargs():
     parser.add_argument("incsv", help="input csv")
     parser.add_argument("outdir", help="fhir json files land here")
     parser.add_argument("-d", help="delimiter (assumed ;)", required=False, default=";")
+    parser.add_argument("--delim-cmp", help="delimiter for the cmp_value field for the multi-value cmp_types MULTI and CATALOG (assumed ,). needs to be different that the delimiter of the csv file.", required=False, default=",")    
     parser.add_argument("-e", help="encoding (assumed utf-8)", required=False, default="utf-8")
     parser.add_argument("--delete", help="delete these fhir resources")
     
@@ -55,7 +56,7 @@ def main():
 
     match args.type:
         case "observation":
-            entries = csv_to_observation(dict_reader)
+            entries = csv_to_observation(dict_reader, args.delim_cmp)
         case "specimen":
             entries = csv_to_specimen(dict_reader)
         case "patient":
@@ -65,8 +66,10 @@ def main():
             sys.exit(1)
     # build observations or specimen
     # write fhir observation files
-  #  print(f"type: {entries}")
-    writeout(entries, args.outdir, args.type)
+    # print(f"type: {entries}")
+
+    bundles = bundle(entries, 10)
+    writeout(bundles, args.outdir, args.type)
 
 # kick off program
 sys.exit(main())

@@ -13,42 +13,42 @@ import os
 import math
 from fhirbuild.buildhelp import *
 
-# csv_to_specimen_str turns csv file to fhir string
-# should it return array of objects or string?
 def csv_to_specimen_str(file) -> str:
+    """csv_to_specimen_str turns csv file to fhir string."""
+
+    # should it return array of objects or string?
+
     return json.dumps(csv_to_specimen(file))
 
 
 def add_bundle(entries: dict[str, list]) -> dict:
+    """add_bundle does what?"""
+    
     result = {}
     for subject_id, specimens in entries.items():
         # create a bundle for each subject_id
         bundle = fhir_bundle(specimens)
         result[subject_id] = bundle
- #   print(f"Together : {result}")
+
     return result
 
 # csv_to_specimen turns csv file into an array of fhir objects
 def csv_to_specimen(reader: csv.DictReader):
 
-    out: dict[str, list] = {}
+    entries = []
     for row in reader:
-        if row['subject_id'] not in out:
-            out[row['subject_id']] = []
-        out[row['subject_id']].append(row_to_specimen(row))
-    out = add_bundle(out)
-    return out
+        entries.append(row_to_specimen(row))
+
+    return entries
 
 # csv_to_patient turns csv file into array of patient fhir objects
 def csv_to_patient(reader: csv.DictReader) -> list[dict]:
-    out = []
 
+    entries = []
     for i, row in enumerate(reader):
-        out.append(fhir_bundle([row_to_patient(row, i)]))
+        entries.append([row_to_patient(row, i)])
 
-    return out
-
-
+    return entries
 
 # dataframe_to_specimen turns a dataframe to fhir
 def dataframe_to_specimen(df):
@@ -147,46 +147,62 @@ def intornone(s:str):
     #print(f"not match letter: '{s}'")
     return int(s)
 
-# writeout writes an array of fhir observations to files in outdir
-def writeout(entries, outdir, type, bundle=False):
-    gen_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-    # why could entries be a dict or and array?  
-    if isinstance(entries, dict):
-        # if entries is a dict, we assume it's a bundle
-        for i, bundle_entries in enumerate(entries.values()):
-            # we assume the first entry in the bundle has the subject_id):
-            filename = gen_time + "_" + type + "_" + str(i) + ".json"
-            path = os.path.join(outdir, filename)
-            with open(path, 'w', encoding='utf-8') as outf:
-                json.dump(bundle_entries, outf, indent=4, ensure_ascii=False) # why ensure ascii false?
-        return  
-    else: 
-        # how broad should the zero-place holder for the pagenumber be? (eg for 999 pages 3, for 1000 pages 4)
-        page_num_width = str(int(math.log10(len(entries))) + 1)
-        for i, entry in enumerate(entries):
-            fstring = "%s_%s_p%0" + page_num_width + "d.json"
-            filename = fstring % (gen_time, type, i)
-            # filename = gen_time + "_" + type + "_p" + str(i) + ".json"
-            path = os.path.join(outdir, filename)
-            with open(path, 'w', encoding='utf-8') as outf:
-                json.dump(entry, outf, indent=4, ensure_ascii=False)
-
+# writeout writes an array of fhir ?entries? to files in outdir
 # row_to_observation turns a csv row to fhir
-def row_to_observation(row:dict, i, delete=False):
+def row_to_observation(row:dict, i, delim_cmp, delete=False):
     entry = None
 
     row = DictPath(row)
 
-    # gather the components (columns prefixed by 'cmp_') and sampleids (columns prefixed by 'id_') for this row into one array each
-    comps = [] # array of key value pairs
-    ids = [] # array of key value pairs
+    # gather the components (columns prefixed by 'cmp_N_' for the Nth component)
+    comps = {} # map indexed by component index.
     for key in row.keys():
         # are we at a component column
         if re.match("^cmp_", key):
-            # strip the cmp_ prefix and remember
-            withoutprefix = re.sub(r"^cmp_", "", key)
-            comps.append((withoutprefix, row[key]))
+            # each component comes with a index and different fields. 
+            # cmp_<index>_<field>
+            # for the field names see the observation section in readme.md.
+            
+            # what's the component's index?
+            a = key.split("_")
+            icomp = int(a[1])
+            
+            # is this component new? add it.
+            if not icomp in comps:
+                comps[icomp] = {}
+
+            # what's the field of the component?
+            field = re.sub(r"^cmp_\d+_", "", key)
+
+            # put what's in the row at this key into the specific field for the ith component.
+            comps[icomp][field] = row[key]
+
+    comprecs = []
+    # make recs from each component.
+    for comp in comps:
+        rec = None
+        if comp["type"] == "BOOLEAN":
+            rec = BooleanRec(value=comp["value"])
+        elif comp["type"] == "NUMBER":
+            rec = NumberRec(value=comp["value"])
+        elif comp["type"] == "DATE":
+            rec = DateRec(value=comp["value"]) # parse?
+        elif comp["type"] == "STRING":
+            rec = StringRec(value=comp["value"])
+        elif comp["type"] == "MULTI":
+            # split the value
+            values = comp["value"].split(delim_cmp)
+            rec = MultiRec(values=values)
+        elif comp["type"] == "CATALOG":
+            # split
+            values = comp["value"].split(delim_cmp)
+            rec = CatalogRec(values=values)
+            
+        comprecs.append(rec)
+        
+    # gather the sampleids (columns prefixed by 'id_') 
+    ids = [] # array of key value pairs
+    for key in row.keys():
         # are we at a sampleid column
         if re.match("^idcs_", key):
             # strip the idcs_ prefix and remember
@@ -196,12 +212,12 @@ def row_to_observation(row:dict, i, delete=False):
     effectivedate = panda_timestamp(row["effective_date_time"])
 
     # build the entry
-    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_id=row['subject_id'], delete=delete)
+    entry = fhir_obs(component=comprecs, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_id=row['subject_id'], delete=delete)
 
     return entry
 
 
-# row_to_patient turns the row of a csv to fhir patient
+# row_to_patient turns the fhir entry of a patient from csv row.
 def row_to_patient(row:dict, i):
     # todo id_PSN auseinander droeseln in zwei argumente, die id und den idcontainertyp
 
@@ -232,7 +248,7 @@ def get_update_overwrite_flag(row):
     return update_with_overwrite
 
 # csv_to_observation turns rows seperate fhir files
-def csv_to_observation(reader: csv.DictReader):
+def csv_to_observation(reader: csv.DictReader, delim_cmp:str):
 
     rows = list(reader)
 
@@ -242,7 +258,7 @@ def csv_to_observation(reader: csv.DictReader):
 
     for i, row in enumerate(rows):
         # todo put more than one entry in bundle
-        out.append(fhir_bundle([row_to_observation(row, i)]))
+        out.append(fhir_bundle([row_to_observation(row, delim_cmp, i)]))
 
 
     return out
