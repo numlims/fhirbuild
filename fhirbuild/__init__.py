@@ -4,18 +4,17 @@
 # da muessten wir mal suchen, https://www.google.com/search?q=python+fhir+frameworks  
 # vielleicht z.b. hier https://pypi.org/project/fhir.resources/
 
-from datetime import date, datetime, timezone, timedelta
-import uuid
+from datetime import date, datetime
 
 from tr import Sample, Identifier, Patient, Amount, Finding
 from tr import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
 import os
 import math
 import json
+from fhirbuild.help import datestring, genfhirid
 
 
-
-def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int):
+def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3):
     """write_patients writes fhir resources of patients and returns a list containing the written directory."""
 
     # get the entries
@@ -35,11 +34,11 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
     # write the bundles
     return writeout(bundles, dir, "patient", wrap=wrap)
 
-def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int) -> list:
+def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3) -> list:
     """write_samples writes fhir resources of Samples and returns a list containing the written directory."""
 
     # fill in fhirids, taking parent-child relations into account.
-    fill_in_fhirids(samples)
+    _fill_in_fhirids(samples)
 
     # collect the entries
     entries = [ ]
@@ -55,9 +54,10 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         # append the entry
         entries.append(entry)
 
-        
+
+
     # bundles the entries
-    bundles = bundle(entries, batchsize, type="Sample", cxx=cxx)
+    bundles = bundle(entries, batchsize, restype="Sample", cxx=cxx)
 
     # if print is set, print
     if should_print:
@@ -67,7 +67,7 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
     return writeout(bundles, dir, "sample", wrap=wrap)
 
 
-def fill_in_fhirids(samples):
+def _fill_in_fhirids(samples):
     """fill_in_fhirids fills in fhirids from parent-child relations via oid (between derived and aliquotgroup)."""
 
     # remember the fhirids by oid
@@ -115,7 +115,7 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
         i += 1
 
     # bundles the entries
-    bundles = bundle(entries, batchsize, type="Observation", cxx=3)
+    bundles = bundle(entries, batchsize, restype="Observation", cxx=3)
 
     # if print is set, print
     if should_print:
@@ -125,7 +125,7 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
     return writeout(bundles, dir, "obs", wrap=wrap)
 
 
-def bundle(entries, n, type:str=None, cxx:int=None) -> list:
+def bundle(entries, n, restype:str=None, cxx:int=None) -> list:
     """bundle puts n entries in a bundle each."""
 
     bundles = []
@@ -135,14 +135,14 @@ def bundle(entries, n, type:str=None, cxx:int=None) -> list:
         # after each n entries
         if i > 0 and i % n == 0:
             # append a bundle of the full batch
-            bundles.append(fhir_bundle(batch, type=type, cxx=cxx))
+            bundles.append(fhir_bundle(batch, restype=restype, cxx=cxx))
             # reset the batch
             batch = []
         # add to the batch
         batch.append(entry)
 
     # append the last batch
-    bundles.append(fhir_bundle(batch, type=type, cxx=cxx))
+    bundles.append(fhir_bundle(batch, restype=restype, cxx=cxx))
 
     return bundles
     
@@ -177,17 +177,6 @@ def writeout(bundles:list, dir:str, type:str, wrap:bool=False):
     return [outdir]
 
 
-def datestring(d: datetime) -> str:
-    """datestring returns fhir-compatible date string of date."""    
-    if d == None: 
-        return None
-    # make the date time-zone aware (for utc +00:00 timezone)
-    # d = d.replace(tzinfo=timezone.utc)
-    # todo only if the date doesn't have a timezone
-    # don't use the current timezone, cause the time zone of the sample should be kept, not the time zone where the user runs fhirbuild
-    # d = d.replace(tzinfo=datetime.now().astimezone().tzinfo)
-    d = d.replace(tzinfo=timezone(timedelta(hours=1)))
-    return d.isoformat()
 
 def fhir_identifier(identifier:Identifier, system:str="urn:centraxx"):
     """ fhirIdentifier returns a fhir identifier."""
@@ -515,24 +504,14 @@ def fhir_aliquotgroup(
         )
 
 
-    if sample.receiveddate is not None:
-        entry["resource"]["receivedTime"] = datestring(sample.receiveddate)
+    if sample.receiptdate is not None:
+        entry["resource"]["receivedTime"] = datestring(sample.receiptdate)
 
     return entry
 
 
-def genfhirid(fromstr:str):
-    """genfhirid generates a fhirid from given string (e.g. sampleid)."""
-    # Generate a deterministic ID based on the input string
-   
-    namespace = uuid.NAMESPACE_DNS  # Use DNS namespace for UUID generation
-    if fromstr is None or fromstr == "":
-        raise ValueError("fromstr must not be None or empty")
 
-    return str(uuid.uuid5(namespace, fromstr))  # Use uuid5 for deterministic ID generation
-    
-
-def fhir_bundle(entries:list, type:str=None, cxx:int=3):
+def fhir_bundle(entries:list, restype:str=None, cxx:int=3):
     """fhir_bundle packs a list of entries into a fhir bundle."""
     bundle = {
         "type": "transaction",
@@ -542,9 +521,9 @@ def fhir_bundle(entries:list, type:str=None, cxx:int=3):
     if cxx == 3:
         bundle["resourceType"] = "Bundle"
     elif cxx == 4:
-        bundle["resourceType"] = type
+        bundle["resourceType"] = restype
 
-        return bundle
+    return bundle
 
 
 def fhir_obs(

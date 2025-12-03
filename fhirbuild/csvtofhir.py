@@ -9,9 +9,11 @@ from tr import Sample, Patient, Amount, Finding, Identifier, Idable
 from tr import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
 import csv
 import json
-import re
 import os
+import re
 import math
+import fhirbuild.help
+from fhirbuild.help import intornone
 
 def csv_to_samples(reader: csv.DictReader):
     """csv_to_samples turns csv file into a list of Sample instances."""
@@ -73,21 +75,27 @@ def row_to_sample(row:dict) -> dict:
     identifiers = []
     for type, value in raw_identifiers:
         try:
-            identifiers.append(Identifier(code=type, value=value))
+            identifiers.append(Identifier(code=type, id=value))
         except ValueError as e:
             print(f"Error processing identifier {type}: {e}")   
 
     # add the fhirid as identifier
-    identifiers.add(Identifier(code="fhirid", value=fhirid))
-
+    identifiers.append(Identifier(code="fhirid", id=fhirid))
 
     # convert dates
-    received_date = datetime.fromisodate(row['received_date'])
-    collection_date = datetime.fromisodate(row['collection_date'])
-    derival_date = datetime.fromisodate(row['derival_date'])        
-    reposition_date = datetime.fromisodate(row['reposition_date'])
-    derival_date = datetime.fromisodate(row['derival_date'])   
-    collection_date = datetime.fromisodate(row['collection_date'])
+    received_date = help.fromisoornone(row['received_date'])    
+    collection_date = help.fromisoornone(row['collection_date'])
+    derival_date = help.fromisoornone(row['derival_date'])        
+    reposition_date = help.fromisoornone(row['reposition_date'])
+    derival_date = help.fromisoornone(row['derival_date'])   
+    collection_date = help.fromisoornone(row['collection_date'])
+    #received_date = row['received_date']
+    #collection_date = row['collection_date']
+    #derival_date = row['derival_date']
+    #reposition_date = row['reposition_date']
+    #derival_date = row['derival_date']
+    #collection_date = row['collection_date']
+
 
     # make amounts
     initial_amount = None      
@@ -108,8 +116,8 @@ def row_to_sample(row:dict) -> dict:
         derivaldate=derival_date,
         ids=identifiers,
         type=row['type'],
-        patient=Idable([Identifier(row['subject_id'], row['subject_idcontainer'])])
-        receiveddate=received_date,
+        patient=Idable([Identifier(id=row['subject_id'], code=row['subject_idcontainer'])]),
+        receiptdate=received_date,
         initialamount=initial_amount,
         restamount=rest_amount,
         xposition=intornone(row['xpos']),
@@ -209,7 +217,7 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
             withoutprefix = re.sub(r"^idcs_", "", key)
             sids.append((withoutprefix, row[key]))
 
-    effectivedate = datetime.fromisodate(row["effective_date_time"])
+    effectivedate = help.fromisoornone(row["effective_date_time"])
 
     # build the finding
     finding = Finding(findingdate=effectivedate,
@@ -224,8 +232,6 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
     # return the finding
     return finding
 
-
-
 def get_update_overwrite_flag(row):
     """get_update_overwrite_flag checks if the row has the update_with_overwrite flag set, returns true or false, false if not set."""
     if 'update_with_overwrite' in row.keys():
@@ -233,22 +239,6 @@ def get_update_overwrite_flag(row):
     else:
         update_with_overwrite = False
     return update_with_overwrite
-
-def intornone(s:str):
-    """intornone parses a string to int, and letters A,B,C,... to numbers 1,2,3... if it receives None it returns None."""
-    #  print(f"intornone: {s}")
-    if s == None:
-        return None
-    if re.match(r"^[A-Za-z]$", s):
-        #print("match letter")
-        # convert to lower, so that you can subtract 96 from lower case 'a' and land at 1
-        s = s.lower()
-        # get the ascii number for the letter with ord() and subtract 96
-        num = ord(s) - 96
-        return num
-    #print(f"not match letter: '{s}'")
-    return int(s)
-
 
 def extract_identifiers(row: dict, prefix: str = "idc_") -> list:
     """
@@ -265,3 +255,4 @@ def extract_identifiers(row: dict, prefix: str = "idc_") -> list:
                 identifiers.append((key_without_idc_prefix, row[key]))
     #  print(identifiers)  # Debugging output
     return identifiers
+

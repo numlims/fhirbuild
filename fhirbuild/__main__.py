@@ -3,8 +3,9 @@
 import sys
 import argparse
 import csv
-from fhirbuild.csvtofhir import csv_to_specimen, csv_to_observation, csv_to_patient
-from fhirbuild import writeout
+from fhirbuild.csvtofhir import csv_to_samples, csv_to_findings, csv_to_patient_fhir
+from fhirbuild import writeout, write_samples, write_observations, bundle
+import fhirbuild.help
 
 def parseargs():
     """parseargs parses command line arguments."""
@@ -22,20 +23,6 @@ def parseargs():
     return args
 
 
-def open_csv_file(filename, delimiter=";", encoding="utf-8"):
-    """
-    open_csv_file opens a CSV file and returns a DictReader object.
-    """
-    try:
-        file = open(filename, "r", encoding=encoding)
-        return csv.DictReader(file, delimiter=delimiter)
-    except FileNotFoundError:
-        print(f"File {filename} not found.")
-        sys.exit(1)
-    except Exception as e:
-        print(f"Error opening file {filename}: {e}")
-        sys.exit(1)
-
 
 
 def main():
@@ -46,8 +33,8 @@ def main():
     if args.d != None:
         delimiter = args.d
 
-    # read the csv
-    dict_reader = open_csv_file(args.incsv, delimiter=delimiter, encoding=args.e)
+            # read the csv
+    dict_reader = help.open_csv_file(args.incsv, delimiter=delimiter, encoding=args.e)
 
     # build what's needed
     match args.type:
@@ -59,7 +46,7 @@ def main():
             write_samples(samples, dir=args.outdir, batchsize=10, cxx=3)
         case "patient":
             entries = csv_to_patient_fhir(dict_reader)
-            bundles = bundle(entries, 10, type="Patient", cxx=3)
+            bundles = bundle(entries, 10, restype="Patient", cxx=3)
             writeout(bundles, args.outdir, args.type)
         case _:
             print(f"Unknown type: {args.type}")
