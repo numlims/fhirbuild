@@ -16,6 +16,7 @@ def parseargs():
     parser.add_argument("--delim-cmp", help="delimiter for the cmp_value field for the multi-value cmp_types MULTI and CATALOG (assumed ,). needs to be different that the delimiter of the csv file.", required=False, default=",")    
     parser.add_argument("-e", help="encoding (assumed utf-8)", required=False, default="utf-8")
     parser.add_argument("--delete", help="delete these fhir resources")
+    parser.add_argument("--cxx", help="cxx version. 3|4")    
     
     args = parser.parse_args()
     return args
@@ -23,7 +24,7 @@ def parseargs():
 
 def open_csv_file(filename, delimiter=";", encoding="utf-8"):
     """
-    Opens a CSV file and returns a DictReader object.
+    open_csv_file opens a CSV file and returns a DictReader object.
     """
     try:
         file = open(filename, "r", encoding=encoding)
@@ -38,38 +39,32 @@ def open_csv_file(filename, delimiter=";", encoding="utf-8"):
 
 
 def main():
-    """main turns csv from file to fhir."""
+    """main turns csv from file to fhir for specimen, patient or observation."""
     args = parseargs()
-
-    # read from stdin
-    #reader = csv.DictReader(open(args.incsv, "r"), delimiter=args.d)
-    # rows = [row for row in reader]
-
-    #file = open(args.incsv, "r")
 
     delimiter = ";"
     if args.d != None:
         delimiter = args.d
-    
-    dict_reader = open_csv_file(args.incsv, delimiter=delimiter, encoding=args.e)
-   
 
+    # read the csv
+    dict_reader = open_csv_file(args.incsv, delimiter=delimiter, encoding=args.e)
+
+    # build what's needed
     match args.type:
         case "observation":
-            entries = csv_to_observation(dict_reader, args.delim_cmp)
+            findings = csv_to_finding(dict_reader, args.delim_cmp)
+            write_observations(findings, dir=args.outdir, batchsize=10, cxx=3)
         case "specimen":
-            entries = csv_to_specimen(dict_reader)
+            samples = csv_to_samples(dict_reader)
+            write_samples(samples, dir=args.outdir, batchsize=10, cxx=3)
         case "patient":
-            entries = csv_to_patient(dict_reader)
+            entries = csv_to_patient_fhir(dict_reader)
+            bundles = bundle(entries, 10, type="Patient", cxx=3)
+            writeout(bundles, args.outdir, args.type)
         case _:
             print(f"Unknown type: {args.type}")
             sys.exit(1)
-    # build observations or specimen
-    # write fhir observation files
-    # print(f"type: {entries}")
-
-    bundles = bundle(entries, 10)
-    writeout(bundles, args.outdir, args.type)
+            
 
 # kick off program
 sys.exit(main())

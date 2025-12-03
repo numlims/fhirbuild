@@ -15,7 +15,7 @@ import json
 
 
 
-def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False):
+def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int):
     """write_patients writes fhir resources of patients and returns a list containing the written directory."""
 
     # get the entries
@@ -25,8 +25,8 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
         entries.append(fhir_patient(pat, fhirid=str(i))) 
         i += 1
 
-    # bundles the entries #bm
-    bundles = bundle(entries, batchsize)
+    # bundles the entries 
+    bundles = bundle(entries, batchsize, type="Patient", cxx=cxx)
 
     # if print is set, print
     if should_print:
@@ -35,18 +35,29 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
     # write the bundles
     return writeout(bundles, dir, "patient", wrap=wrap)
 
-def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False) -> list:
-    """write_samples writes fhir resources of samples and returns a list containing the written directory."""
+def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int) -> list:
+    """write_samples writes fhir resources of Samples and returns a list containing the written directory."""
 
-    # get the entries
-    entries = []
-    i = 0
+    # fill in fhirids, taking parent-child relations into account.
+    fill_in_fhirids(samples)
+
+    # collect the entries
+    entries = [ ]
     for sample in samples:
-        entries.append(fhir_sample(sample, fhirid=str(i))) 
-        i += 1
+        # build aliquot group or standard sample
+        if sample.category == "ALIQUOTGROUP":
+            entry = fhir_aliquotgroup(sample)
+        elif sample.category == "MASTER" or sample.category == "DERIVED":
+            entry = fhir_specimen(sample)
+        else:
+            raise Exception(f"sample category {sample.category} is not allowed.")
+
+        # append the entry
+        entries.append(entry)
+
         
     # bundles the entries
-    bundles = bundle(entries, batchsize)
+    bundles = bundle(entries, batchsize, type="Sample", cxx=cxx)
 
     # if print is set, print
     if should_print:
@@ -54,6 +65,44 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         
     # write the bundles
     return writeout(bundles, dir, "sample", wrap=wrap)
+
+
+def fill_in_fhirids(samples):
+    """fill_in_fhirids fills in fhirids from parent-child relations via oid (between derived and aliquotgroup)."""
+
+    # remember the fhirids by oid
+    fhirids = {}
+
+    # collect the entries
+    i = 0
+    for sample in samples:
+        # take the fhirid if passed
+        fhirid = sample.id("fhirid")
+        
+        # if no fhirid, take the index as this sample's fhirid
+        if fhirid is None:
+            fhirid = str(i)
+            sample.ids.append( Identifier(code="fhirid", id=fhirid) )
+
+        # print("parent:" + str(sample.parent))
+
+        # if the sample's parent has no fhirid or sampleid, try to set its fhirid from when we passed it in the loop (if we passed it).
+        pfhirid = None
+        parent = sample.parent
+        if parent is not None and parent.id() is None and parent.id("fhirid") is None:
+            pfhirid = dig(fhirids, parent.id("oid"))
+            
+        # add the remembered fhirid for the parent
+        if pfhirid is not None:
+            sample.parent.ids.append( Identifier (id=pfhirid, code="fhirid") )
+
+        # remember this entry's fhirid by its oid
+        fhirids[sample.id("oid")] = fhirid
+
+        # increase the index
+        i += 1
+
+
 
 def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False) -> list:
     """write_observations writes fhir resources of observations and returns a list containing the written directory.""" 
@@ -66,18 +115,17 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
         i += 1
 
     # bundles the entries
-    bundles = bundle(entries, batchsize)
+    bundles = bundle(entries, batchsize, type="Observation", cxx=3)
 
     # if print is set, print
     if should_print:
         print(json.dumps(bundles, indent=4))
 
-
     # write the bundles
     return writeout(bundles, dir, "obs", wrap=wrap)
 
 
-def bundle(entries, n) -> list:
+def bundle(entries, n, type:str=None, cxx:int=None) -> list:
     """bundle puts n entries in a bundle each."""
 
     bundles = []
@@ -87,14 +135,14 @@ def bundle(entries, n) -> list:
         # after each n entries
         if i > 0 and i % n == 0:
             # append a bundle of the full batch
-            bundles.append(fhir_bundle(batch))            
+            bundles.append(fhir_bundle(batch, type=type, cxx=cxx))
             # reset the batch
             batch = []
         # add to the batch
         batch.append(entry)
 
     # append the last batch
-    bundles.append(fhir_bundle(batch))
+    bundles.append(fhir_bundle(batch, type=type, cxx=cxx))
 
     return bundles
     
@@ -129,7 +177,7 @@ def writeout(bundles:list, dir:str, type:str, wrap:bool=False):
     return [outdir]
 
 
-def datestring(d: datetime):
+def datestring(d: datetime) -> str:
     """datestring returns fhir-compatible date string of date."""    
     if d == None: 
         return None
@@ -148,18 +196,22 @@ def fhir_identifier(identifier:Identifier, system:str="urn:centraxx"):
         return None
     if identifier.code is None:
         raise ValueError("identifier or code for fhir identifier is None")
-    if  identifier.value is None or identifier.value == "" or identifier.value == "NULL":
-        raise ValueError(f"value for fhir identifier {identifier.code} is '{identifier.value}'")
+    if  identifier.id is None or identifier.id == "" or identifier.id == "NULL":
+        raise ValueError(f"id for fhir identifier {identifier.code} is '{identifier.id}'")
     return {
         "type": {
             "coding": [
-                {
-                    "system": system,
-                    "code": identifier.code
-                }
+                fhir_coding(system=system, code=identifier.code)
             ]
         },
-        "value": identifier.value
+        "value": identifier.id
+    }
+
+def fhir_coding(code:str=None, system:str="urn:centraxx"):
+    """fhir_coding returns a fhir coding with code and system."""
+    return {
+        "system": system,
+        "code": code
     }
 
 def fhir_extension(url:str, d):
@@ -170,18 +222,19 @@ def fhir_extension(url:str, d):
     return ext
 
 
-def fhir_sample(sample:Sample=None,
-                fhirid:str=None,
+def fhir_specimen(sample:Sample=None,
                 update_with_overwrite:bool=False ): 
-    """fhir_sample builds a fhir sample."""
+    """fhir_specimen builds a fhir specimen. pass the sample's fhirid as an Identifier with code "fhirid" for the sample, and, for deriveds, the fhirid of its parent aliquotgroup as an Identifier with code "fhirid" of sample.parent. by tying the fhirids directly to the sample, calling methods can receive fhirids for lists of Samples e.g. from csv without having to sneak them in via an extra argument."""
+
+    # todo also build aliquotgroups?
     
-    # print(f"fhir_sample: {sample.category} {fhirid} {sample.collected_date} {sample.xposition} {sample.yposition}")
+    # print(f"fhir_specimen: {sample.category} {fhirid} {sample.collected_date} {sample.xposition} {sample.yposition}")
     
     entry = {
-        "fullUrl": f"Specimen/{fhirid}",
+        "fullUrl": f"Specimen/{sample.id('fhirid')}",
         "resource": {
             "resourceType": "Specimen",
-            "id": f"{fhirid}",
+            "id": f"{sample.id('fhirid')}",
             "extension": [
                 fhir_extension(
                     "https://fhir.centraxx.de/extension/updateWithOverwrite",
@@ -201,14 +254,11 @@ def fhir_sample(sample:Sample=None,
                 fhir_extension(
                     "https://fhir.centraxx.de/extension/sampleCategory",
                     {
-                        "valueCoding": {
-                            "system": "urn:centraxx",
-                            "code": str(sample.category)
-                        }
+                        "valueCoding": fhir_coding(code=str(sample.category)) 
                     }
                 )
             ],
-            "identifier": [ fhir_identifier(id) for id in sample.ids ],
+            "identifier": [], # filled later
             "status": "available",
             "type": {
                 "coding": [
@@ -216,9 +266,10 @@ def fhir_sample(sample:Sample=None,
                 ]
             },
             "subject": {
-                "identifier": fhir_identifier(sample.patientid)
+                "identifier": fhir_identifier(sample.patient.identifier())
             },
             # "receivedTime": # added later
+            # "parent": [ ], # filled later
             "collection": {
                 # "collectedDateTime": collected_date, # added later
                 # "quantity": initial_amount # added later
@@ -238,9 +289,69 @@ def fhir_sample(sample:Sample=None,
         },
         "request": {
             "method": "POST",
-            "url": f"Specimen/{fhirid}",
+            "url": f"Specimen/{sample.id('fhirid')}",
         }
     }
+
+    # fill the identifiers.  skip the oid for now
+    for id in sample.ids:
+         if id.code != "oid" and id.code != "fhirid":
+             entry["resource"]["identifier"].append(fhir_identifier(id))
+    
+    # bundle the values that end up in the sprec extension
+
+    sprecext = {
+        "url": "https://fhir.centraxx.de/extension/sprec",
+        "extension": [
+            {
+                "url": "https://fhir.centraxx.de/extension/sprec/useSprec",
+                "valueBoolean": True
+            }
+        ]
+    }
+
+    # none checks for values.
+    # the fhir importer apparently doesn't import null values, so only put in values if they aren't none.
+    # this would make deleting values impossible at the moment.
+    # does cxx4 fhir import accept null values?
+
+
+    # first stock processing (centrifugation)
+    
+    if sample.stockprocessing is not None:
+        # append the stock processing sprec
+        sprecext["extension"].append( fhir_extension(
+            "https://fhir.centraxx.de/extension/sprec/stockProcessing",
+            { "valueCoding": fhir_coding(code=sample.stockprocessing) }
+        ))
+
+    if sample.stockprocessingdate is not None:
+        # append the stock processing date sprec
+        sprecext["extension"].append( fhir_extension(
+            "https://fhir.centraxx.de/extension/sprec/stockProcessingDate",
+            { "valueDateTime": datestring(sample.stockprocessingdate) }
+        ))
+
+    # second stock processing (centrifugation)
+    
+    if sample.secondprocessing is not None:
+        # append the second processing sprec
+        sprecext["extension"].append( fhir_extension(
+            "https://fhir.centraxx.de/extension/sprec/secondProcessing",
+            { "valueCoding": fhir_coding(code=sample.secondprocessing) }
+        ))
+
+    if sample.secondprocessingdate is not None:
+        # append the second processing date sprec
+        sprecext["extension"].append( fhir_extension(
+            "https://fhir.centraxx.de/extension/sprec/secondProcessingDate",
+            { "valueDateTime": datestring(sample.secondprocessingdate) }
+        ))
+        
+                
+    # add the sprec extension to the extensions
+    entry["resource"]["extension"].append(sprecext)
+
 
     if sample.locationpath is not None:
         entry["resource"]["extension"].append(
@@ -255,8 +366,6 @@ def fhir_sample(sample:Sample=None,
                 )
         )
 
-
-
     if sample.derivaldate:
         entry["resource"]["extension"].append(fhir_extension(
             "https://fhir.centraxx.de/extension/sample/derivalDate",
@@ -265,29 +374,37 @@ def fhir_sample(sample:Sample=None,
 
     if sample.xposition != None:
         for ext in entry['resource']['extension']:
-    #       print(f"ext: {ext}")
+
             if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
-                # Füge xpos am Anfang ein
-             #   print(f"xpos found, inserting xposition {xposition}")
+                # füge xpos am Anfang ein
+                # print(f"xpos found, inserting xposition {xposition}")
                 ext['extension'].insert(1, fhir_extension("https://fhir.centraxx.de/extension/sample/xPosition", { "valueInteger": int(sample.xposition) })) 
 
     if sample.yposition != None:
         for ext in entry['resource']['extension']:
-       #    print(f"ext: {ext}")
             if ext.get("url") == "https://fhir.centraxx.de/extension/sample/sampleLocation":
-                # Füge ypos als zweites ein
-              #  print(f"ypos found, inserting yposition {yposition}")
+                # füge ypos als zweites ein
+                # print(f"ypos found, inserting yposition {yposition}")
                 ext['extension'].insert(2, fhir_extension("https://fhir.centraxx.de/extension/sample/yPosition", { "valueInteger": int(sample.yposition) })) 
 
-    # none checks for values
-    
-    if sample.parentid is not None:
-        entry["resource"]["parent"] = [
+
+    # if the parent's fhirid is given, use it to reference the parent, else use the sampleid of the parent.
+    if sample.parent is not None:
+        entry["resource"]["parent"] = []
+
+    if sample.parent is not None and sample.parent.id('fhirid') is not None:
+        entry["resource"]["parent"].append(
             {
-                "identifier": fhir_identifier(sample.parentid)
+                "reference": f"Specimen/{sample.parent.id('fhirid')}"
             }
-        ]
-        
+        )
+    elif sample.parent is not None: # todo check it's not none?
+        entry["resource"]["parent"].append(
+            {
+                "identifier": fhir_identifier(sample.parent.identifier())
+            }
+        )
+
     if sample.concentration is not None:
         entry["resource"]["extension"].append(fhir_extension(
             "https://fhir.centraxx.de/extension/sample/concentration",
@@ -295,7 +412,7 @@ def fhir_sample(sample:Sample=None,
         ))
 
     if sample.samplingdate is not None:
-        entry["resource"]["collection"]["collectedDateTime"] = datestring(sample.samplingdate    )
+        entry["resource"]["collection"]["collectedDateTime"] = datestring(sample.samplingdate)
   
     if sample.receiptdate is not None:
         entry["resource"]["receivedTime"] = datestring(sample.receiptdate)
@@ -313,12 +430,7 @@ def fhir_sample(sample:Sample=None,
         entry["resource"]["container"][0]["specimenQuantity"] = fhir_quantity(sample.restamount)
 
     if sample.type is not None:
-        entry["resource"]["type"]["coding"].append(
-            {
-                "system": "urn:centraxx",
-                "code": str(sample.type) # material
-            }
-        )
+        entry["resource"]["type"]["coding"].append( fhir_coding(code=str(sample.type)) ) # material
 
     return entry
 
@@ -332,38 +444,33 @@ def fhir_quantity(amount:Amount=None, system:str="urn:centraxx"):
     return quant
 
 def fhir_aliquotgroup(
-        fhirid=None,        
-        organization_unit=None,
-        parent_sampleid=None,
-        received_date=None,
-        subject_id=None,
-        type=None
+        sample:Sample=None,
+        fhirid:str=None,
+        parent_fhirid:str=None,
+        update_with_overwrite:bool=False
 ):
-    """fhir_aliquotgroup would build an aliquotgroup."""
+    """fhir_aliquotgroup builds a fhir aliquotgroup from a Sample. pass fhirids as Identifiers with code "fhirid" of sample and sample.parent."""
     entry = {
-        "fullUrl": f"Specimen/{fhirid}",
+        "fullUrl": f"Specimen/{sample.id('fhirid')}",
         "resource": {
             "resourceType": "Specimen",
-            "id": f"{fhirid}",
+            "id": f"{sample.id('fhirid')}",
             "extension": [
                 {
                     "url": "https://fhir.centraxx.de/extension/updateWithOverwrite",
-                    "valueBoolean": False
+                    "valueBoolean": update_with_overwrite
                 },
                 {
                     "url": "https://fhir.centraxx.de/extension/sample/organizationUnit",
                     "valueReference": {
                         "identifier": {
-                            "value": organization_unit
+                            "value": str(sample.orga)
                         }
                     }
                 },
                 {
                     "url": "https://fhir.centraxx.de/extension/sampleCategory",
-                    "valueCoding": {
-                        "system": "urn:centraxx",
-                        "code": "ALIQUOTGROUP"
-                    }
+                    "valueCoding": fhir_coding(code="ALIQUOTGROUP")
                 },
                 {
                     "url": "https://fhir.centraxx.de/extension/sprec",
@@ -376,32 +483,40 @@ def fhir_aliquotgroup(
             "status": "unavailable",
             "type": {
                 "coding": [
-                    {
-                        "system": "urn:centraxx",
-                        "code": type
-                    }
+                    fhir_coding(code=sample.type)
                 ]
             },
             "subject": {
-                "identifier": fhir_identifier(Identifier(code="LIMSPSN", value=subject_id))
+                "identifier": fhir_identifier(sample.patient.identifier())
             },
             # "receivedTime": added later
-            "parent": [
-                {
-                    "identifier": fhir_identifier(Identifier(code="SAMPLEID", value=parent_sampleid))
-                }
-            ],
+            "parent": [ ], # filled later 
 
         },
         "request": {
             "method": "POST",
-            "url": f"Specimen/{fhirid}",
+            "url": f"Specimen/{sample.id('fhirid')}"
         }
     }
 
-    if received_date is not None:
-        entry["resource"]["receivedTime"] = datestring(received_date)
+    # if the parent's fhirid is given, use it to reference the parent, else use the sampleid of the parent
 
+    if sample.parent is not None and sample.parent.id('fhirid') is not None:
+        entry["resource"]["parent"].append(
+            {
+                "reference": f"Specimen/{sample.parent.id('fhirid')}"
+            }
+        )
+    elif sample.parent is not None: 
+        entry["resource"]["parent"].append(
+            {
+                "identifier": fhir_identifier(sample.parent.identifier())
+            }
+        )
+
+
+    if sample.receiveddate is not None:
+        entry["resource"]["receivedTime"] = datestring(sample.receiveddate)
 
     return entry
 
@@ -417,31 +532,35 @@ def genfhirid(fromstr:str):
     return str(uuid.uuid5(namespace, fromstr))  # Use uuid5 for deterministic ID generation
     
 
-def fhir_bundle(entries:list):
+def fhir_bundle(entries:list, type:str=None, cxx:int=3):
     """fhir_bundle packs a list of entries into a fhir bundle."""
     bundle = {
-    "resourceType": "Bundle",
-    "type": "transaction",
-    "entry": entries
+        "type": "transaction",
+        "entry": entries
     }
-    return bundle
+    # set resource type to bundle for cxx3, to the specific type for cxx4
+    if cxx == 3:
+        bundle["resourceType"] = "Bundle"
+    elif cxx == 4:
+        bundle["resourceType"] = type
+
+        return bundle
 
 
 def fhir_obs(
         finding:Finding=None,
-        fhirid:str=None,        
-        # effective_date_time:datetime=None,
+        fhirid:str=None,
         update_with_overwrite:bool=False,
         delete:bool=False        
 ):
-    """fhir_obs builds one fhir observation."""
-    if finding.sampleid is None:
+    """fhir_obs builds a fhir observation from Finding."""
+    if finding.sample is None:
         print("error: no sample id")
         exit()
 
     # if no fhirid given, generate
     if fhirid is None:
-        fhirid = genfhirid(sampleid)
+        fhirid = genfhirid(finding.sample.id())
 
     # if delete is set to true, change method to delete
     fhirmethod = "POST" # write observation
@@ -467,16 +586,13 @@ def fhir_obs(
             "status": "unknown",
             "code": {
                 "coding": [
-                    {
-                        "system": "urn:centraxx",
-                        "code": str(finding.methodname)
-                    }
+                    fhir_coding(code=str(finding.methodname))
                 ]
             },
             "subject": {
-                "identifier": fhir_identifier(finding.patientid)
+                "identifier": fhir_identifier(finding.patient.identifier())
             },
-            "effectiveDateTime": datestring(finding.creationdate), #  todo right?
+            "effectiveDateTime": datestring(finding.findingdate), 
             "method": {
                 "coding": [
                     {
@@ -487,7 +603,7 @@ def fhir_obs(
                 ]
             },
             "specimen": {
-                "identifier": fhir_identifier(finding.sampleid)
+                "identifier": fhir_identifier(finding.sample.identifier())
             },
             "component": []
         }
@@ -501,10 +617,7 @@ def fhir_obs(
         comp = {
             "code": {
                 "coding": [
-                    {
-                        "system": "urn:centraxx",
-                        "code": str(code)
-                    }
+                    fhir_coding(code=str(code))
                 ]
             }
         }
@@ -560,10 +673,7 @@ def fhir_obs(
         entry["resource"]["component"].append({
         "code": {
             "coding": [
-                {
-                    "system": "urn:centraxx",
-                    "code": "EINS_CODE"
-                }
+                fhir_coding(code="EINS_CODE")
             ]
         },
         "valueString": str(finding.sender)
