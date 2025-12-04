@@ -464,9 +464,6 @@ def fhir_patient(identifiers:list=None, organization_unit:str=None, fhirid:str=N
     """fhir_patient baut einen patienten."""
 
     entry = {
-   "resourceType": "Bundle",
-   "type": "transaction",
-   "entry": [ {
     "fullUrl": f"Patient/{fhirid}",
     "resource": {
       "resourceType": "Patient",
@@ -487,7 +484,6 @@ def fhir_patient(identifiers:list=None, organization_unit:str=None, fhirid:str=N
         "method": "POST",
         "url": f"Patient/{fhirid}"
         }
-    } ]
-    }
+    } 
     
     return entry
