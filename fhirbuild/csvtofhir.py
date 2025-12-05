@@ -114,7 +114,7 @@ def row_to_sample(row:dict) -> dict:
         locationpath=row['location_path'],
         orga=row['organization_unit'],
         derivaldate=derival_date,
-        ids=identifiers,
+        ids=Idable(ids=identifiers, mainidc="SAMPLEID"),
         type=row['type'],
         patient=Idable([Identifier(id=row['subject_id'], code=row['subject_idcontainer'])]),
         receiptdate=received_date,
@@ -149,7 +149,7 @@ def row_to_patient_fhir(row:dict, i):
     # add the fhirid to identifiers
     identifiers.append(Identifier(code="fhirid", id=fhir_id))
 
-    patient = Patient(ids=identifiers,
+    patient = Patient(ids=Idable(ids=identifiers, mainidc="LIMSPSN"),
                       orga=row['organization_unit'])
     p_fhir = fhir_patient(patient, update_with_overwrite=update_with_overwrite)
     return p_fhir

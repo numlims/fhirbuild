@@ -27,7 +27,7 @@ csv input column names for building an primary (master) or aliquot
 | concentration_unit | the unit of the concentration |
 | derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
 | fhirid | the identifier specific to fhir |
-| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | one or more ids |
+| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | one or more ids for the sample |
 | initial_amount | the initial amount |
 | initial_unit | the initial unit |
 | location_path | the location path |
@@ -76,10 +76,10 @@ csv input columns for patient:
 
 | csv column | comment |
 | --- | --- |
-| idcp_[PSN\|LIMSPSN...] | |
-| fhirid | |
-| organization_unit | |
-| study | |
+| idcp_[PSN\|LIMSPSN...] | ids for the patient with specified idcontainers |
+| fhirid | a fhirid for the patient |
+| organization_unit | the organization unit of the patient |
+| study | the trial the patient is in |
 
 
 ## build and install
