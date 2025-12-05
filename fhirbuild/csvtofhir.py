@@ -5,8 +5,8 @@
 from fhirbuild import *
 from datetime import datetime
 from dict_path import DictPath
-from tr import Sample, Patient, Amount, Finding, Identifier, Idable
-from tr import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
+from tram import Sample, Patient, Amount, Finding, Identifier, Idable
+from tram import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
 import csv
 import json
 import os

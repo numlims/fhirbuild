@@ -6,8 +6,8 @@
 
 from datetime import date, datetime
 
-from tr import Sample, Identifier, Patient, Amount, Finding
-from tr import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
+from tram import Sample, Identifier, Patient, Amount, Finding
+from tram import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
 import os
 import math
 import json

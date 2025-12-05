@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta" # name of the python object that fronten
 
 [project]
 name = "fhirbuild"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
   { name="numlims", email="numlims@med.uni-greifswald.de"}
 ]
@@ -14,7 +14,7 @@ requires-python = ">=3.10"
 dependencies = [
   "dict_path",
   "pandas",
-  "traction @ https://github.com/numlims/traction/archive/refs/tags/v0.1.0.zip"
+  "tram @ https://github.com/numlims/tram/archive/refs/tags/v0.0.1.zip"  
 ]
 classifiers = [
   "Programming Language :: Python :: 3"
