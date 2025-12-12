@@ -38,7 +38,7 @@ def main():
     # build what's needed
     match args.type:
         case "observation":
-            findings = csv_to_finding(dict_reader, args.delim_cmp)
+            findings = csv_to_findings(dict_reader, args.delim_cmp)
             write_observations(findings, dir=args.outdir, batchsize=10, cxx=3)
         case "specimen":
             samples = csv_to_samples(dict_reader, mainidc=args.mainidc)

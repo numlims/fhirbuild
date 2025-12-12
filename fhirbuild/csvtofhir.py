@@ -204,9 +204,9 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
             # put what's in the row at this key into the specific field for the ith component.
             comps[icomp][field] = row[key]
 
-    comprecs = []
+    comprecs = {}
     # make recs from each component.
-    for comp in comps:
+    for i, comp in comps.items():
         rec = None
         if comp["type"] == "BOOLEAN":
             rec = BooleanRec(value=comp["value"])
@@ -225,16 +225,14 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
             values = comp["value"].split(delim_cmp)
             rec = CatalogRec(values=values)
             
-        comprecs.append(rec)
+        comprecs[comp["code"]] = rec
         
-    # gather the sampleids (columns prefixed by 'id_') 
-    sids = [] # array of key value pairs
-    for key in row.keys():
-        # are we at a sampleid column
-        if re.match("^idcs_", key):
-            # strip the idcs_ prefix and remember
-            withoutprefix = re.sub(r"^idcs_", "", key)
-            sids.append((withoutprefix, row[key]))
+    # gather the sampleids (columns prefixed by 'idcs_') 
+    raw_identifiers = extract_identifiers(row, prefix="idcs_")
+    # make identifiers from them
+    sids = [] # array of Identifiers
+    for key, val in raw_identifiers.items():
+        sids.append(Identifier(id = val, code = key))
 
     effectivedate = fbh.fromisoornone(row["effective_date_time"])
 

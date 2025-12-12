@@ -108,8 +108,7 @@ def _fill_in_fhirids(samples):
         i += 1
 
 
-
-def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False) -> list:
+def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx=3) -> list:
     """write_observations writes fhir resources of observations and returns a list containing the written directory.""" 
 
     # get the entries

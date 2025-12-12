@@ -63,14 +63,14 @@ derived:
 
 csv input column names for observation.
 
-additionally pass the --delim-cmp flag for the delimiter in the list
-of MULTI and CATALOG cmp_* values.
+additionally pass the --delim-cmp flag for the delimiter 
+of the MULTI and CATALOG cmp_* value lists.
 
 | csv column | comment |
 | --- | --- |
+| cmp_[i]_code | the messparam code of the ith component. |
 | cmp_[i]_type | the type of the ith component. BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. |
 | cmp_[i]_value | the value of the ith component. |
-| cmp_[i]_code | the messparam code of the ith component. |
 | effective_date_time | sollte das datetime heissen? |
 | idcs_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
 | methodname | the messprofile name |
