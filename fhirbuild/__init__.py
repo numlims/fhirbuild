@@ -19,13 +19,12 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
 
     # get the entries
     entries = []
-    i = 0
     for pat in pats:
-        entries.append(fhir_patient(pat, fhirid=str(i))) 
-        i += 1
+        # make a fhirid that depends on the limspsn, the fhirid is  
+        entries.append(fhir_patient(pat))
 
     # bundles the entries 
-    bundles = bundle(entries, batchsize, type="Patient", cxx=cxx)
+    bundles = bundle(entries, batchsize, restype="Patient", cxx=cxx)
 
     # if print is set, print
     if should_print:
@@ -79,9 +78,15 @@ def _fill_in_fhirids(samples):
         # take the fhirid if passed
         fhirid = sample.id("fhirid")
         
-        # if no fhirid, take the index as this sample's fhirid
+        # if no fhirid, generate a fhirid
         if fhirid is None:
-            fhirid = str(i)
+            # if it's an aliquotgroup, generate a fhirid based on the parent id and aliquotgroup type.
+            if sample.category == "ALIQUOTGROUP":
+                fhirid = genfhirid(sample.parent.id() + sample.type)
+            else:
+                # else generate the fhirid from the sampleid
+                fhirid = genfhirid(sample.id())
+                
             sample.ids.append( Identifier(code="fhirid", id=fhirid) )
 
         # print("parent:" + str(sample.parent))
@@ -94,7 +99,7 @@ def _fill_in_fhirids(samples):
             
         # add the remembered fhirid for the parent
         if pfhirid is not None:
-            sample.parent.ids.append( Identifier (id=pfhirid, code="fhirid") )
+            sample.parent.ids.append( Identifier(id=pfhirid, code="fhirid") )
 
         # remember this entry's fhirid by its oid
         fhirids[sample.id("oid")] = fhirid
@@ -185,8 +190,18 @@ def fhir_identifier(identifier:Identifier, system:str="urn:centraxx"):
         return None
     if identifier.code is None:
         raise ValueError("identifier or code for fhir identifier is None")
-    if  identifier.id is None or identifier.id == "" or identifier.id == "NULL":
-        raise ValueError(f"id for fhir identifier {identifier.code} is '{identifier.id}'")
+
+    id = identifier.id
+    # why also exclude 'NULL'?    
+    #if  id is None or id == "" or id == "NULL":
+    # why error on missing values? is it because fhirimport doesn't take no null values? but that's not quite in the scope of fhirbuild to know, is it?
+    if id is None or id == "":    
+        raise ValueError(f"id for fhir identifier {identifier.code} is '{id}'")
+    
+    # set the id to None if 'NULL' was given? 
+    if id == 'NULL':
+        id = None
+        
     return {
         "type": {
             "coding": [
@@ -662,10 +677,14 @@ def fhir_obs(
 
 
 
-def fhir_patient(patient:Patient=None,
-                 fhirid:str=None,
-                 update_with_overwrite:bool=False ):
+def fhir_patient(patient:Patient=None, update_with_overwrite:bool=False):
     """fhir_patient baut einen patienten."""
+
+    # if there isn't a fhirid, make it based on the patient's main id
+    # the fhirid needs to be unique for the patient, it is also written to the db and patient records can be updated with it
+    fhirid = patient.id("fhirid")
+    if fhirid is None:
+        fhirid = genfhirid(patient.id())
 
     entry = {
         "fullUrl": f"Patient/{fhirid}",
@@ -676,7 +695,7 @@ def fhir_patient(patient:Patient=None,
                 "url": "https://fhir.centraxx.de/extension/updateWithOverwrite",
                 "valueBoolean": update_with_overwrite
             }],
-            "identifier": [ fhir_identifier(id) for id in patient.ids ],
+            "identifier": [], # filled later
             "generalPractitioner": [ {
                 "identifier": {
                     "value": str(patient.orga)
@@ -687,6 +706,11 @@ def fhir_patient(patient:Patient=None,
             "method": "POST",
             "url": f"Patient/{fhirid}"
         }
-    } 
+    }
+
+    for id in patient.ids:
+        if id.code != "oid" and id.code != "fhirid":
+             entry["resource"]["identifier"].append(fhir_identifier(id))
+
     
     return entry

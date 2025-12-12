@@ -14,7 +14,7 @@ requires-python = ">=3.10"
 dependencies = [
   "dict_path",
   "pandas",
-  "tram @ https://github.com/numlims/tram/archive/refs/tags/v0.0.1.zip"  
+  "tram @ git+https://github.com/numlims/tram.git"
 ]
 classifiers = [
   "Programming Language :: Python :: 3"

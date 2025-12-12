@@ -1,6 +1,8 @@
 from datetime import datetime, timezone, timedelta
 import uuid
 import re
+import sys
+import csv
 
 def intornone(s:str):
     """intornone parses a string to int, and letters A,B,C,... to numbers 1,2,3... if it receives None it returns None."""

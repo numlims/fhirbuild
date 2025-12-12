@@ -12,25 +12,25 @@ import json
 import os
 import re
 import math
-import fhirbuild.help
+import fhirbuild.help as fbh
 from fhirbuild.help import intornone
 
-def csv_to_samples(reader: csv.DictReader):
-    """csv_to_samples turns csv file into a list of Sample instances."""
+def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
+    """csv_to_samples turns csv file into a list of Sample instances. mainidc can be given as argument or csv column."""
 
     samples = []
     for row in reader:
-        samples.append(row_to_sample(row))
+        samples.append(row_to_sample(row, mainidc=mainidc))
 
     return samples
 
 
-def csv_to_patient_fhir(reader: csv.DictReader) -> list[dict]:
+def csv_to_patient_fhir(reader: csv.DictReader, mainidc:str=None) -> list[dict]:
     """csv_to_patient_fhir turns csv file into a list of patient fhir entries."""
 
     entries = []
-    for i, row in enumerate(reader):
-        entries.append([row_to_patient_fhir(row, i)])
+    for row in reader:
+        entries.append([row_to_patient_fhir(row, mainidc=mainidc)])
 
     return entries
 
@@ -49,8 +49,8 @@ def csv_to_findings(reader: csv.DictReader, delim_cmp:str):
     return out
 
 
-def row_to_sample(row:dict) -> dict:
-    """row_to_sample turns a csv row to a Sample instance."""
+def row_to_sample(row:dict, mainidc:str=None) -> dict:
+    """row_to_sample turns a csv row to a Sample instance. mainidc can be passed as parameter or csv column."""
     entry = None
 
     row = DictPath(row)    # common
@@ -72,8 +72,20 @@ def row_to_sample(row:dict) -> dict:
     
     raw_identifiers = extract_identifiers(row, prefix="idcs_")
 
+    # overwrite the mainidc argument by the csv column, if given.
+    # if there is only one idc, take it as mainidc. else take it from the row.
+    if "mainidc" in row:
+        mainidc = row["mainidc"]
+    if len(raw_identifiers) == 1 and mainidc is None:
+        mainidc = raw_identifiers.keys()[0]
+
+    if mainidc is None:
+        raise Exception("mainidc needed to specify from which idc to build the fhirid.")
+    if not mainidc in raw_identifiers.keys():
+        raise Exception(f"there is no column for mainidc {mainidc}, it needs to be in {list(raw_identifiers.keys())}")
+
     identifiers = []
-    for type, value in raw_identifiers:
+    for type, value in raw_identifiers.items():
         try:
             identifiers.append(Identifier(code=type, id=value))
         except ValueError as e:
@@ -83,19 +95,12 @@ def row_to_sample(row:dict) -> dict:
     identifiers.append(Identifier(code="fhirid", id=fhirid))
 
     # convert dates
-    received_date = help.fromisoornone(row['received_date'])    
-    collection_date = help.fromisoornone(row['collection_date'])
-    derival_date = help.fromisoornone(row['derival_date'])        
-    reposition_date = help.fromisoornone(row['reposition_date'])
-    derival_date = help.fromisoornone(row['derival_date'])   
-    collection_date = help.fromisoornone(row['collection_date'])
-    #received_date = row['received_date']
-    #collection_date = row['collection_date']
-    #derival_date = row['derival_date']
-    #reposition_date = row['reposition_date']
-    #derival_date = row['derival_date']
-    #collection_date = row['collection_date']
-
+    received_date = fbh.fromisoornone(row['received_date'])    
+    collection_date = fbh.fromisoornone(row['collection_date'])
+    derival_date = fbh.fromisoornone(row['derival_date'])        
+    reposition_date = fbh.fromisoornone(row['reposition_date'])
+    derival_date = fbh.fromisoornone(row['derival_date'])   
+    collection_date = fbh.fromisoornone(row['collection_date'])
 
     # make amounts
     initial_amount = None      
@@ -114,7 +119,7 @@ def row_to_sample(row:dict) -> dict:
         locationpath=row['location_path'],
         orga=row['organization_unit'],
         derivaldate=derival_date,
-        ids=Idable(ids=identifiers, mainidc="SAMPLEID"),
+        ids=Idable(ids=identifiers, mainidc=mainidc),
         type=row['type'],
         patient=Idable([Identifier(id=row['subject_id'], code=row['subject_idcontainer'])]),
         receiptdate=received_date,
@@ -123,35 +128,49 @@ def row_to_sample(row:dict) -> dict:
         xposition=intornone(row['xpos']),
         yposition=intornone(row['ypos']),
         receptacle=row['receptacle']
-        )
+    )
 
     # return
     return sample
 
-def row_to_patient_fhir(row:dict, i):
+def row_to_patient_fhir(row:dict, mainidc:str=None):
     """row_to_patient_fhir turns a csv row to a patient fhir entry. it lets update_with_overwrite be set for each row."""
+
+    # to avoid errors if keys are missing
+    row = DictPath(row)
     
     # todo id_PSN auseinander droeseln in zwei argumente, die id und den idcontainertyp
 
     update_with_overwrite = get_update_overwrite_flag(row)
 
     # identifiers
-    raw_identifiers = extract_identifiers(row, prefix="idcp_")  
+    raw_identifiers = extract_identifiers(row, prefix="idcp_")
+
+    # overwrite the mainidc argument by the csv column, if given.
+    # if there is only one idc, take it as mainidc. else take it from the row.
+    if "mainidc" in row:
+        mainidc = row["mainidc"]
+    if len(raw_identifiers) == 1 and mainidc is None:
+        mainidc = raw_identifiers.keys()[0]
+        
+    if mainidc is None:
+        raise Exception("mainidc needed to specify from which idc to build the fhirid.")
+    if not mainidc in raw_identifiers.keys():
+        raise Exception(f"there is no column for mainidc {mainidc}, it needs to be in {list(raw_identifiers.keys())}")
     
     identifiers = []
 
-    for type, value in raw_identifiers:
+    for type, value in raw_identifiers.items():
         identifiers.append(Identifier(code=type, id=value))
 
-    # get a fhirid
-    fhir_id = genfhirid(row.get('fhirid', str(i)))
+    # for now, tuck in the fhirid with the identifiers
+    identifiers.append(Identifier(code="fhirid", id=row["fhirid"]))
 
-    # add the fhirid to identifiers
-    identifiers.append(Identifier(code="fhirid", id=fhir_id))
-
-    patient = Patient(ids=Idable(ids=identifiers, mainidc="LIMSPSN"),
+    patient = Patient(ids=Idable(ids=identifiers, mainidc=mainidc),
                       orga=row['organization_unit'])
+
     p_fhir = fhir_patient(patient, update_with_overwrite=update_with_overwrite)
+    
     return p_fhir
 
 
@@ -217,7 +236,7 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
             withoutprefix = re.sub(r"^idcs_", "", key)
             sids.append((withoutprefix, row[key]))
 
-    effectivedate = help.fromisoornone(row["effective_date_time"])
+    effectivedate = fbh.fromisoornone(row["effective_date_time"])
 
     # build the finding
     finding = Finding(findingdate=effectivedate,
@@ -240,19 +259,19 @@ def get_update_overwrite_flag(row):
         update_with_overwrite = False
     return update_with_overwrite
 
-def extract_identifiers(row: dict, prefix: str = "idc_") -> list:
+def extract_identifiers(row: dict, prefix:str="idc_") -> list:
     """
     extract_identifiers extracts identifiers from a row dictionary.
-    Identifiers are expected to be prefixed with 'idc_'.
-    Returns a list of tuples (type, value).
+    identifiers are to be prefixed with 'idcs_' or 'idcp_' for sample and patient, respectively.
+    returns a dict keyed by idc code.
     """
-    identifiers = []
+    out = {}
     for key in row.keys():
         if key.startswith(prefix):
-            key_without_idc_prefix = key.removeprefix(prefix)
+            strippedkey = key.removeprefix(prefix)
             # Check if the value is not None before appending
             if row[key] is not None:
-                identifiers.append((key_without_idc_prefix, row[key]))
-    #  print(identifiers)  # Debugging output
-    return identifiers
+                out[strippedkey] = row[key]
+    #  print(out)  # Debugging output
+    return out
 
