@@ -5,77 +5,52 @@
 from fhirbuild import *
 from datetime import datetime
 from dict_path import DictPath
+from tram import Sample, Patient, Amount, Finding, Identifier, Idable
+from tram import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
 import csv
 import json
-import pandas as pd
-import re
 import os
+import re
 import math
-from fhirbuild.buildhelp import *
+import fhirbuild.help as fbh
+from fhirbuild.help import intornone
 
-# csv_to_specimen_str turns csv file to fhir string
-# should it return array of objects or string?
-def csv_to_specimen_str(file) -> str:
-    return json.dumps(csv_to_specimen(file))
+def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
+    """csv_to_samples turns csv file into a list of Sample instances. mainidc can be given as argument or csv column."""
 
-
-def add_bundle(entries: dict[str, list]) -> dict:
-    result = {}
-    for subject_id, specimens in entries.items():
-        # create a bundle for each subject_id
-        bundle = fhir_bundle(specimens)
-        result[subject_id] = bundle
- #   print(f"Together : {result}")
-    return result
-
-# csv_to_specimen turns csv file into an array of fhir objects
-def csv_to_specimen(reader: csv.DictReader):
-
-    out: dict[str, list] = {}
+    samples = []
     for row in reader:
-        if row['subject_id'] not in out:
-            out[row['subject_id']] = []
-        out[row['subject_id']].append(row_to_specimen(row))
-    out = add_bundle(out)
-    return out
+        samples.append(row_to_sample(row, mainidc=mainidc))
 
-# csv_to_patient turns csv file into array of patient fhir objects
-def csv_to_patient(reader: csv.DictReader) -> list[dict]:
+    return samples
+
+
+def csv_to_patient_fhir(reader: csv.DictReader, mainidc:str=None) -> list[dict]:
+    """csv_to_patient_fhir turns csv file into a list of patient fhir entries."""
+
+    entries = []
+    for row in reader:
+        entries.append([row_to_patient_fhir(row, mainidc=mainidc)])
+
+    return entries
+
+
+def csv_to_findings(reader: csv.DictReader, delim_cmp:str):
+    """csv_to_findings turns csv rows to a list of Finding instances."""
+
+    rows = list(reader)
+
+    # todo check that only the specified columns are in csv
     out = []
 
-    for i, row in enumerate(reader):
-        out.append(fhir_bundle([row_to_patient(row, i)]))
+    for i, row in enumerate(rows):
+        out.append(row_to_finding(row, delim_cmp, i))
 
     return out
 
 
-
-# dataframe_to_specimen turns a dataframe to fhir
-def dataframe_to_specimen(df):
-    out = []
-    for row in df:
-        out.append(fhir_bundle([row_to_specimen(row)]))
-    return out
-
-
-def extract_identifiers(row: dict, prefix: str = "idc_") -> list:
-    """
-    Extracts identifiers from a row dictionary.
-    Identifiers are expected to be prefixed with 'idc_'.
-    Returns a list of tuples (type, value).
-    """
-    identifiers = []
-    for key in row.keys():
-        if key.startswith(prefix):
-            key_without_idc_prefix = key.removeprefix(prefix)
-            # Check if the value is not None before appending
-            if row[key] is not None:
-                identifiers.append((key_without_idc_prefix, row[key]))
-  #  print(identifiers)  # Debugging output
-    return identifiers
-
-# row_to_fhir turns a csvrow to fhir
-def row_to_specimen(row:dict) -> dict:
+def row_to_sample(row:dict, mainidc:str=None) -> dict:
+    """row_to_sample turns a csv row to a Sample instance. mainidc can be passed as parameter or csv column."""
     entry = None
 
     row = DictPath(row)    # common
@@ -93,165 +68,208 @@ def row_to_specimen(row:dict) -> dict:
                     break
         fhirid = genfhirid(id_source)
 
-    received_date = panda_timestamp(row['received_date'])
-
-    if row['category'] == "ALIQUOTGROUP":
-        entry = fhir_aliquotgroup(organization_unit=row['organization_unit'], type=row['type'], subject_id=row['subject_id'], received_date=received_date, parent_sampleid=row['parent_sampleid'], fhirid=fhirid) # todo pass args
-
-    elif row['category'] == "MASTER" or row['category'] == "DERIVED":
-
-        # identifiers
-        raw_identifiers = extract_identifiers(row, prefix="idcs_")
-
-        identifiers = []
-        for type, value in raw_identifiers:
-            try:
-                identifiers.append(fhir_identifier(code=type, value=value))
-            except ValueError as e:
-                print(f"Error processing identifier {type}: {e}")   
-
-        initial_amount = None      
-        if row['initial_amount']:
-            initial_amount = fhir_quantity(value=float(row['initial_amount']), unit=row['initial_unit'])
-        rest_amount = None
-        if row['rest_amount']:
-            rest_amount = fhir_quantity(value=float(row['rest_amount']), unit=row['rest_unit'])
-
-
-        # convert dates specific to primary or aliquot (not in aliquotgroup)
-        # received_date done before
-        collection_date = panda_timestamp(row['collection_date'])
-        derival_date = panda_timestamp(row['derival_date'])        
-        reposition_date = panda_timestamp(row['reposition_date'])
-        derival_date = panda_timestamp(row['derival_date'])        # build entry
-        collection_date = panda_timestamp(row['collection_date'])
-        entry = fhir_sample(category=row['category'], fhirid=fhirid, collected_date=collection_date, reposition_date=reposition_date, location_path=row['location_path'], organization_unit=row['organization_unit'], derival_date=derival_date, identifiers=identifiers, type=row['type'], subject_id=row['subject_id'], subject_idcontainer=row['subject_idcontainer'], received_date=received_date, parent_fhirid=row['parent_fhirid'], initial_amount=initial_amount, rest_amount=rest_amount, xposition=intornone(row['xpos']), yposition=intornone(row['ypos']), receptacle=row['receptacle'])
-    else:
-        # error
-        print("row needs category column with MASTER, DERIVED or ALIQUOTGROUP")
+    # make identifiers for the sample
     
-    return entry
+    raw_identifiers = extract_identifiers(row, prefix="idcs_")
 
-# intornone parses a string to int, and letters A,B,C,... to numbers 1,2,3..., and doesn't cry when it receives none
-def intornone(s:str):
-  #  print(f"intornone: {s}")
-    if s == None:
-        return None
-    if re.match(r"^[A-Za-z]$", s):
-        #print("match letter")
-        # convert to lower, so that you can subtract 96 from lower case 'a' and land at 1
-        s = s.lower()
-        # get the ascii number for the letter with ord() and subtract 96
-        num = ord(s) - 96
-        return num
-    #print(f"not match letter: '{s}'")
-    return int(s)
+    # overwrite the mainidc argument by the csv column, if given.
+    # if there is only one idc, take it as mainidc. else take it from the row.
+    if "mainidc" in row:
+        mainidc = row["mainidc"]
+    if len(raw_identifiers) == 1 and mainidc is None:
+        mainidc = raw_identifiers.keys()[0]
 
-# writeout writes an array of fhir observations to files in outdir
-def writeout(entries, outdir, type, bundle=False):
-    gen_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if mainidc is None:
+        raise Exception("mainidc needed to specify from which idc to build the fhirid.")
+    if not mainidc in raw_identifiers.keys():
+        raise Exception(f"there is no column for mainidc {mainidc}, it needs to be in {list(raw_identifiers.keys())}")
 
-    # why could entries be a dict or and array?  
-    if isinstance(entries, dict):
-        # if entries is a dict, we assume it's a bundle
-        for i, bundle_entries in enumerate(entries.values()):
-            # we assume the first entry in the bundle has the subject_id):
-            filename = gen_time + "_" + type + "_" + str(i) + ".json"
-            path = os.path.join(outdir, filename)
-            with open(path, 'w', encoding='utf-8') as outf:
-                json.dump(bundle_entries, outf, indent=4, ensure_ascii=False) # why ensure ascii false?
-        return  
-    else: 
-        # how broad should the zero-place holder for the pagenumber be? (eg for 999 pages 3, for 1000 pages 4)
-        page_num_width = str(int(math.log10(len(entries))) + 1)
-        for i, entry in enumerate(entries):
-            fstring = "%s_%s_p%0" + page_num_width + "d.json"
-            filename = fstring % (gen_time, type, i)
-            # filename = gen_time + "_" + type + "_p" + str(i) + ".json"
-            path = os.path.join(outdir, filename)
-            with open(path, 'w', encoding='utf-8') as outf:
-                json.dump(entry, outf, indent=4, ensure_ascii=False)
+    identifiers = []
+    for type, value in raw_identifiers.items():
+        try:
+            identifiers.append(Identifier(code=type, id=value))
+        except ValueError as e:
+            print(f"Error processing identifier {type}: {e}")   
 
-# row_to_observation turns a csv row to fhir
-def row_to_observation(row:dict, i, delete=False):
-    entry = None
+    # add the fhirid as identifier
+    identifiers.append(Identifier(code="fhirid", id=fhirid))
 
+    # convert dates
+    received_date = fbh.fromisoornone(row['received_date'])    
+    collection_date = fbh.fromisoornone(row['collection_date'])
+    derival_date = fbh.fromisoornone(row['derival_date'])        
+    reposition_date = fbh.fromisoornone(row['reposition_date'])
+    derival_date = fbh.fromisoornone(row['derival_date'])   
+    collection_date = fbh.fromisoornone(row['collection_date'])
+
+    # make amounts
+    initial_amount = None      
+    if row['initial_amount']:
+        initial_amount = Amount(value=float(row['initial_amount']), unit=row['initial_unit'])
+    rest_amount = None
+    if row['rest_amount']:
+        rest_amount = Amount(value=float(row['rest_amount']), unit=row['rest_unit'])
+
+
+    # make a sample instance from the row
+    sample = Sample(
+        category=row['category'],
+        samplingdate=collection_date,
+        repositiondate=reposition_date,
+        locationpath=row['location_path'],
+        orga=row['organization_unit'],
+        derivaldate=derival_date,
+        ids=Idable(ids=identifiers, mainidc=mainidc),
+        type=row['type'],
+        patient=Idable([Identifier(id=row['subject_id'], code=row['subject_idcontainer'])]),
+        receiptdate=received_date,
+        initialamount=initial_amount,
+        restamount=rest_amount,
+        xposition=intornone(row['xpos']),
+        yposition=intornone(row['ypos']),
+        receptacle=row['receptacle']
+    )
+
+    # return
+    return sample
+
+def row_to_patient_fhir(row:dict, mainidc:str=None):
+    """row_to_patient_fhir turns a csv row to a patient fhir entry. it lets update_with_overwrite be set for each row."""
+
+    # to avoid errors if keys are missing
     row = DictPath(row)
-
-    # gather the components (columns prefixed by 'cmp_') and sampleids (columns prefixed by 'id_') for this row into one array each
-    comps = [] # array of key value pairs
-    ids = [] # array of key value pairs
-    for key in row.keys():
-        # are we at a component column
-        if re.match("^cmp_", key):
-            # strip the cmp_ prefix and remember
-            withoutprefix = re.sub(r"^cmp_", "", key)
-            comps.append((withoutprefix, row[key]))
-        # are we at a sampleid column
-        if re.match("^idcs_", key):
-            # strip the idcs_ prefix and remember
-            withoutprefix = re.sub(r"^idcs_", "", key)
-            ids.append((withoutprefix, row[key]))
-
-    effectivedate = panda_timestamp(row["effective_date_time"])
-
-    # build the entry
-    entry = fhir_obs(component=comps, effective_date_time=effectivedate, fhirid=str(i), identifiers=ids, method=row['method'], methodname=row['methodname'], sender=row['sender'], subject_id=row['subject_id'], delete=delete)
-
-    return entry
-
-
-# row_to_patient turns the row of a csv to fhir patient
-def row_to_patient(row:dict, i):
+    
     # todo id_PSN auseinander droeseln in zwei argumente, die id und den idcontainertyp
 
     update_with_overwrite = get_update_overwrite_flag(row)
 
     # identifiers
-    print(row)
-    raw_identifiers = extract_identifiers(row, prefix="idcp_")  
+    raw_identifiers = extract_identifiers(row, prefix="idcp_")
+
+    # overwrite the mainidc argument by the csv column, if given.
+    # if there is only one idc, take it as mainidc. else take it from the row.
+    if "mainidc" in row:
+        mainidc = row["mainidc"]
+    if len(raw_identifiers) == 1 and mainidc is None:
+        mainidc = raw_identifiers.keys()[0]
+        
+    if mainidc is None:
+        raise Exception("mainidc needed to specify from which idc to build the fhirid.")
+    if not mainidc in raw_identifiers.keys():
+        raise Exception(f"there is no column for mainidc {mainidc}, it needs to be in {list(raw_identifiers.keys())}")
     
     identifiers = []
 
-    fhir_id = genfhirid(row.get('fhirid', str(i)))
+    for type, value in raw_identifiers.items():
+        identifiers.append(Identifier(code=type, id=value))
 
-    for type, value in raw_identifiers:
-        identifiers.append(fhir_identifier(code=type, value=value))
+    # for now, tuck in the fhirid with the identifiers
+    identifiers.append(Identifier(code="fhirid", id=row["fhirid"]))
+
+    patient = Patient(ids=Idable(ids=identifiers, mainidc=mainidc),
+                      orga=row['organization_unit'])
+
+    p_fhir = fhir_patient(patient, update_with_overwrite=update_with_overwrite)
+    
+    return p_fhir
 
 
-    entry = fhir_patient(identifiers=identifiers, organization_unit=row['organization_unit'], fhirid=fhir_id, update_with_overwrite=update_with_overwrite)
-    return entry
 
+def row_to_finding(row:dict, i, delim_cmp, delete=False):
+    """row_to_finding turns a csv row to a Finding instance."""
+    entry = None
 
-# get_update_overwrite_flag checks if the row has the update_with_overwrite flag set, returns true or false, false if not set
+    row = DictPath(row)
+
+    # gather the components (columns prefixed by 'cmp_N_' for the Nth component)
+    comps = {} # map indexed by component index.
+    for key in row.keys():
+        # are we at a component column
+        if re.match("^cmp_", key):
+            # each component comes with a index and different fields. 
+            # cmp_<index>_<field>
+            # for the field names see the observation section in readme.md.
+            
+            # what's the component's index?
+            a = key.split("_")
+            icomp = int(a[1])
+            
+            # is this component new? add it.
+            if not icomp in comps:
+                comps[icomp] = {}
+
+            # what's the field of the component?
+            field = re.sub(r"^cmp_\d+_", "", key)
+
+            # put what's in the row at this key into the specific field for the ith component.
+            comps[icomp][field] = row[key]
+
+    comprecs = {}
+    # make recs from each component.
+    for i, comp in comps.items():
+        rec = None
+        if comp["type"] == "BOOLEAN":
+            rec = BooleanRec(value=comp["value"])
+        elif comp["type"] == "NUMBER":
+            rec = NumberRec(value=comp["value"])
+        elif comp["type"] == "DATE":
+            rec = DateRec(value=comp["value"]) # parse?
+        elif comp["type"] == "STRING":
+            rec = StringRec(value=comp["value"])
+        elif comp["type"] == "MULTI":
+            # split the value
+            values = comp["value"].split(delim_cmp)
+            rec = MultiRec(values=values)
+        elif comp["type"] == "CATALOG":
+            # split
+            values = comp["value"].split(delim_cmp)
+            rec = CatalogRec(values=values)
+            
+        comprecs[comp["code"]] = rec
+        
+    # gather the sampleids (columns prefixed by 'idcs_') 
+    raw_identifiers = extract_identifiers(row, prefix="idcs_")
+    # make identifiers from them
+    sids = [] # array of Identifiers
+    for key, val in raw_identifiers.items():
+        sids.append(Identifier(id = val, code = key))
+
+    effectivedate = fbh.fromisoornone(row["effective_date_time"])
+
+    # build the finding
+    finding = Finding(findingdate=effectivedate,
+                      method=row['method'],
+                      methodname=row['methodname'],
+                      patient=Idable(id=row['subject_id'], code="LIMSPSN", mainidc="LIMSPSN"),
+                      recs=comprecs,
+                      sample=Idable(ids=sids, mainidc="SAMPLEID"),
+                      sender=row['sender']
+    )
+    
+    # return the finding
+    return finding
+
 def get_update_overwrite_flag(row):
+    """get_update_overwrite_flag checks if the row has the update_with_overwrite flag set, returns true or false, false if not set."""
     if 'update_with_overwrite' in row.keys():
         update_with_overwrite = row['update_with_overwrite']
     else:
         update_with_overwrite = False
     return update_with_overwrite
 
-# csv_to_observation turns rows seperate fhir files
-def csv_to_observation(reader: csv.DictReader):
-
-    rows = list(reader)
-
-    # todo check that only the specified columns are in csv
-
-    out = []
-
-    for i, row in enumerate(rows):
-        # todo put more than one entry in bundle
-        out.append(fhir_bundle([row_to_observation(row, i)]))
-
-
+def extract_identifiers(row: dict, prefix:str="idc_") -> list:
+    """
+    extract_identifiers extracts identifiers from a row dictionary.
+    identifiers are to be prefixed with 'idcs_' or 'idcp_' for sample and patient, respectively.
+    returns a dict keyed by idc code.
+    """
+    out = {}
+    for key in row.keys():
+        if key.startswith(prefix):
+            strippedkey = key.removeprefix(prefix)
+            # Check if the value is not None before appending
+            if row[key] is not None:
+                out[strippedkey] = row[key]
+    #  print(out)  # Debugging output
     return out
-
-
-
-
-# __main__ turns csv from stdin to fhir
-#if __name__ == "__main__":
-#    print(csv_to_specimen(open(0, "r").read()))
-
 

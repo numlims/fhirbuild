@@ -16,6 +16,8 @@ fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir -d ; -e utf-8-sig
 
 ## column names
 
+### specimen
+
 csv input column names for building an primary (master) or aliquot
 (derived) specimen:
 
@@ -27,10 +29,11 @@ csv input column names for building an primary (master) or aliquot
 | concentration_unit | the unit of the concentration |
 | derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
 | fhirid | the identifier specific to fhir |
-| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | one or more ids |
+| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
 | initial_amount | the initial amount |
 | initial_unit | the initial unit |
 | location_path | the location path |
+| mainidc | the idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given |
 | organization_unit | the organization unit |
 | parent_fhirid | for an aliquot, link to the fhirid of the parent aliquotgroup |
 | received_date | the received date (eingangsdatum) |
@@ -39,7 +42,7 @@ csv input column names for building an primary (master) or aliquot
 | rest_amount | the rest amount |
 | rest_unit | the unit of the rest amount |
 | subject_id | the limspsn of the patient |
-| type | the sample's type (material, CIT etc) |
+| type | the sample's type (material: EDTA, CIT etc) |
 | xpos | the x position on the rack |
 | ypos | the y position on the rack |
 
@@ -54,28 +57,38 @@ derived:
 | parent_sampleid | for an aliquotgroup, link to the sampleid of the group's parent primary sample |
 | received_date | the received date (eingangsdatum) |
 | subject_id | the limspsn of the patient |
-| type | the sample's type (material, CIT etc) |
+| type | the sample's type (material: EDTA, CIT etc) |
 
-csv input column names for observation:
+### observation
+
+csv input column names for observation.
+
+additionally pass the --delim-cmp flag for the delimiter 
+of the MULTI and CATALOG cmp_* value lists.
 
 | csv column | comment |
 | --- | --- |
-| cmp_[...] | put your messwerte codes here, one column per code, each prefixed with 'cmp_' (for the component field in fhir) |
+| cmp_[i]_code | the messparam code of the ith component. |
+| cmp_[i]_type | the type of the ith component. BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. |
+| cmp_[i]_value | the value of the ith component. |
 | effective_date_time | sollte das datetime heissen? |
-| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | a sample id |
+| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
 | methodname | the messprofile name |
 | method | the messprofile code |
 | sender | the EINS_CODE |
 | subject_id | a patient id |
 
-csv input columns for patient:
+### patient
+
+csv input columns for patient.
 
 | csv column | comment |
 | --- | --- |
-| idcp_[PSN\|LIMSPSN...] | |
-| fhirid | |
-| organization_unit | |
-| study | |
+| mainidc | the idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given |
+| idcp_[PSN\|LIMSPSN...] | patient ids specified by idcontainers |
+| fhirid | a fhirid for the patient |
+| organization_unit | the organization unit of the patient |
+| study | the trial the patient is in |
 
 
 ## build and install
