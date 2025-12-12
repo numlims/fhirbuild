@@ -115,7 +115,11 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
     entries = []
     i = 0
     for finding in findings:
-        entries.append(fhir_obs(finding, fhirid=i))
+        # make a fhirid from sampleid and method code
+        #print("sampleid: " + finding.sample.id())
+        #print("method: " + finding.method)
+        fhirid = genfhirid(finding.sample.id() + finding.method)
+        entries.append(fhir_obs(finding, fhirid=fhirid))
         i += 1
 
     # bundles the entries
