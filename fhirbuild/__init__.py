@@ -640,7 +640,7 @@ def fhir_obs(
         if type(rec) is MultiRec:
             # collect the values 
             a = []
-            for val in rec.values:
+            for val in rec.value:
                 a.append({
                     "system": "urn:centraxx:CodeSystem/UsageEntry-x", # sometimes the x is oid, but doesn't seem to need to be
                     "code": str(val)
@@ -652,7 +652,7 @@ def fhir_obs(
         if type(rec) is CatalogRec:
             # collect the values 
             a = []
-            for val in rec.values:
+            for val in rec.value:
                 a.append({
                     "system": f"urn:centraxx:CodeSystem/ValueList-{rec.catalog}", # here apparently the catalog code is needed
                     "code": str(val)
