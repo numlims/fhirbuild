@@ -11,6 +11,7 @@ from tram import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, Catal
 import os
 import math
 import json
+import jsonpickle
 from fhirbuild.help import datestring, genfhirid
 
 
@@ -34,7 +35,7 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
     return writeout(bundles, dir, "patient", wrap=wrap)
 
 def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3) -> list:
-    """write_samples writes fhir resources of Samples and returns a list containing the written directory."""
+    """write_samples writes fhir resources of Samples and returns a list containing the written directory. it fills in missing fhirids."""
 
     # fill in fhirids, taking parent-child relations into account.
     _fill_in_fhirids(samples)
@@ -53,8 +54,6 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         # append the entry
         entries.append(entry)
 
-
-
     # bundles the entries
     bundles = bundle(entries, batchsize, restype="Sample", cxx=cxx)
 
@@ -67,14 +66,19 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
 
 
 def _fill_in_fhirids(samples):
-    """fill_in_fhirids fills in fhirids from parent-child relations via oid (between derived and aliquotgroup)."""
+    """_fill_in_fhirids fills in missing fhirids for Sample instances.  assumes sorted input, parents followed by children.  the fhirids are generated from each Sample's id.  for aliquotgroups, the fhirid is generated from the parent sampleid and the material of the aliquotgroup.  child samples should referenence their parents via the .parent:Idiable field.  for aliquotgroups .parent should contain an Identifier referencing the primary parent with either 'fhirid' or main idc code, for aliquots .parent should contain an Identifier referencing the parent aliquotgroup with either 'fhirid' or 'index' code, since aliquotgroups don't come with sampleids."""
 
     # remember the fhirids by oid
-    fhirids = {}
+    fhiridbyoid = {}
+    # remember the fhirids by index
+    fhiridbyindex = {}
 
     # collect the entries
     i = 0
     for sample in samples:
+        #print(f"i: {i}")
+        #print(jsonpickle.encode(sample, unpicklable=False, indent=4))
+        #print(sample.parent.ids[0].code + ", " + sample.parent.ids[1].code)
         # take the fhirid if passed
         fhirid = sample.id("fhirid")
         
@@ -89,20 +93,46 @@ def _fill_in_fhirids(samples):
                 
             sample.ids.append( Identifier(code="fhirid", id=fhirid) )
 
-        # print("parent:" + str(sample.parent))
+        # remember the fhirid of this aliquotgroup for later use by its children to reference it.
+        # if the sample comes with an oid, remember the fhirid by oid.
+        # if the sample comes with an index, remember the fhirid by index.
+        # if it comes with neither, we assume that the fhirid references are already complete and we don't need to set anything 
+        if sample.id("oid") is not None:
+            fhiridbyoid[sample.id("oid")] = fhirid
+        if sample.id("index") is not None:
+            fhiridbyindex[sample.id("index")] = fhirid
 
-        # if the sample's parent has no fhirid or sampleid, try to set its fhirid from when we passed it in the loop (if we passed it).
-        pfhirid = None
-        parent = sample.parent
-        if parent is not None and parent.id() is None and parent.id("fhirid") is None:
-            pfhirid = dig(fhirids, parent.id("oid"))
-            
-        # add the remembered fhirid for the parent
-        if pfhirid is not None:
-            sample.parent.ids.append( Identifier(id=pfhirid, code="fhirid") )
+        # the references of aliquotgroups to primary samples should be ok, cause primaries can be referenced via sampleid.
 
-        # remember this entry's fhirid by its oid
-        fhirids[sample.id("oid")] = fhirid
+        # the references of aliquots to parent aliquotgroups probably need to be set here, cause aliquotgroups are referenced by that fhirids were just generated (except if all fhirids and references were passed to the function)
+
+        # are we a derived?
+        if sample.category == "DERIVED":
+            parent = sample.parent
+            if parent is None:
+                print(f"error: derived sample {sample.id()} has no parent.")
+                # abort?
+
+            # do we need a fhirid of the parent?
+            if parent.id("fhirid") is None:
+                pfhirid = None
+
+                # get the remembered fhirid of the parent via oid or index
+                poid = parent.id("oid")
+                pindex = parent.id("index")
+                if poid is not None and poid in fhiridbyoid:
+                    pfhirid = fhiridbyoid[poid]
+                elif pindex is not None and pindex in fhiridbyindex:
+                    pfhirid = fhiridbyindex[pindex]
+
+                # error if we didn't find a fhirid
+                if pfhirid is None:
+                    print(f"error: can't find fhirid for parent aliquotgroup of aliquot {sample.id()}.  does it come before the sample and is it referenced properly via oid or index?")
+                    # abort?
+
+            # add the remembered fhirid for the parent
+            if pfhirid is not None:
+                sample.parent.ids.append( Identifier(id=pfhirid, code="fhirid") )
 
         # increase the index
         i += 1
@@ -231,7 +261,7 @@ def fhir_extension(url:str, d):
 
 def fhir_specimen(sample:Sample=None,
                 update_with_overwrite:bool=False ): 
-    """fhir_specimen builds a fhir specimen. pass the sample's fhirid as an Identifier with code "fhirid" for the sample, and, for deriveds, the fhirid of its parent aliquotgroup as an Identifier with code "fhirid" of sample.parent. by tying the fhirids directly to the sample, calling methods can receive fhirids for lists of Samples e.g. from csv without having to sneak them in via an extra argument."""
+    """fhir_specimen builds a fhir specimen. pass the sample's fhirid as an Identifier with code 'fhirid' for the sample, and, for deriveds, the fhirid of its parent aliquotgroup as an Identifier with code 'fhirid' of sample.parent. by tying the fhirids directly to the sample, calling methods can receive fhirids for lists of Samples e.g. from csv without having to sneak them in via an extra argument."""
 
     # todo also build aliquotgroups?
     
@@ -302,7 +332,7 @@ def fhir_specimen(sample:Sample=None,
 
     # fill the identifiers.  skip the oid for now
     for id in sample.ids:
-         if id.code != "oid" and id.code != "fhirid":
+         if id.code != "oid" and id.code != "fhirid" and id.code != "index": # todo move the filtering into _fill_fhirid method?
              entry["resource"]["identifier"].append(fhir_identifier(id))
     
     # bundle the values that end up in the sprec extension

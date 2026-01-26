@@ -16,7 +16,7 @@ import fhirbuild.help as fbh
 from fhirbuild.help import intornone
 
 def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
-    """csv_to_samples turns csv file into a list of Sample instances. mainidc can be given as argument or csv column."""
+    """csv_to_samples turns a csv file into a list of Sample instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
 
     samples = []
     for row in reader:
@@ -50,40 +50,33 @@ def csv_to_findings(reader: csv.DictReader, delim_cmp:str):
 
 
 def row_to_sample(row:dict, mainidc:str=None) -> dict:
-    """row_to_sample turns a csv row to a Sample instance. mainidc can be passed as parameter or csv column."""
+    """row_to_sample turns a csv row to a Sample instance. mainidc can be passed as parameter or csv column. aliquots can reference their parent aliquotgroups by fhirid or index in the csv file, a "fhirid" or "index" Identifier is written to the Sample accordingly. fhirids need to be generated later with _fill_in_fhirids"""
     entry = None
 
     row = DictPath(row)    # common
 
-    # Generate or use provided FHIR ID
-    fhirid = row.get('fhirid')
-    if fhirid is None or fhirid == '':
-        # Use SAMPLEID or another appropriate identifier to generate a deterministic ID
-        id_source = row.get('idcs_SAMPLEID')  # Assuming SAMPLEID is the identifier for the sample
-        if id_source is None:
-            # Try to find any identifier that could be used
-            for key in row.keys():
-                if key.startswith('idcs_'):
-                    id_source = row[key]
-                    break
-        fhirid = genfhirid(id_source)
+    # make the Identifier instances for the sample
 
-    # make identifiers for the sample
-    
+    # get the ids without idcs_ prefix
     raw_identifiers = extract_identifiers(row, prefix="idcs_")
 
-    # overwrite the mainidc argument by the csv column, if given.
-    # if there is only one idc, take it as mainidc. else take it from the row.
+    # figure out the mainidc.
+    # the csv mainidc (if given) overwrites the mainidc function parameter.
+    # if there is only one idc, take this one as mainidc.
     if "mainidc" in row:
         mainidc = row["mainidc"]
     if len(raw_identifiers) == 1 and mainidc is None:
-        mainidc = raw_identifiers.keys()[0]
+        #print(raw_identifiers)
+        mainidc = list(raw_identifiers.keys())[0]
 
+    # the mainidcs shouldn't be none.
     if mainidc is None:
-        raise Exception("mainidc needed to specify from which idc to build the fhirid.")
+        raise Exception("multiple sampleid types given and no mainidc specified.")
+    # the mainidc needs to be in the identifiers.
     if not mainidc in raw_identifiers.keys():
         raise Exception(f"there is no column for mainidc {mainidc}, it needs to be in {list(raw_identifiers.keys())}")
 
+    # make an array of Identifier instances for each idcs_
     identifiers = []
     for type, value in raw_identifiers.items():
         try:
@@ -91,9 +84,16 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
         except ValueError as e:
             print(f"Error processing identifier {type}: {e}")   
 
-    # add the fhirid as identifier
-    identifiers.append(Identifier(code="fhirid", id=fhirid))
+    # if there's a fhirid, add it as identifier
+    if row["fhirid"] is not None:
+        identifiers.append(Identifier(code="fhirid", id=row["fhirid"]))
 
+    # if there's a index, add it as identifier
+    if row["index"] is not None:
+        identifiers.append(Identifier(code="index", id=row["index"]))
+
+    ids = Idable(ids=identifiers, mainidc=mainidc)        
+        
     # convert dates
     received_date = fbh.fromisoornone(row['received_date'])    
     collection_date = fbh.fromisoornone(row['collection_date'])
@@ -110,7 +110,40 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     if row['rest_amount']:
         rest_amount = Amount(value=float(row['rest_amount']), unit=row['rest_unit'])
 
+    # make a parent Idable from parent_fhirid or parent_index
+    pids = []
+    
+    # for aliquots referencing aliquotgroups:
+    # notify if no parent reference given
+    if row["category"] == "DERIVED" and row["parent_fhirid"] is None and row["parent_index"] is None:
+        print(f"no parent_fhirid or parent_index for derived sample {ids.id()} given.")
+    # make Identifiers
+    if row["parent_fhirid"] is not None:
+        pids.append(Identifier(id=row["parent_fhirid"], code="fhirid"))
+    if row["parent_index"] is not None:
+        pids.append(Identifier(id=row["parent_index"], code="index"))
+        
+    # for aliquotgroups referencing samples:
+    # make Identifiers
+    if row["parent_sampleid"] is not None:
+        pids.append(Identifier(id=row["parent_sampleid"], code=row["parent_idc"]))
+        
+    parent = None
+    if len(pids) > 0:
+        # print("mainidc: " + mainidc)
+        parent = Idable(ids=pids, mainidc=row["parent_idc"])
 
+    # make a patient identifier
+    # get the patient id without idcp_ prefix
+    patid_raw = extract_identifiers(row, prefix="idcp_")
+    # there is only one patient id allowed
+    if len(patid_raw) > 1:
+        print(f"error: more than one patient id for sample {ids.id()} given.")
+    patids = []
+    for type, value in patid_raw.items():
+        patids.append(Identifier(code=type, id=value))
+    
+        
     # make a sample instance from the row
     sample = Sample(
         category=row['category'],
@@ -119,9 +152,10 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
         locationpath=row['location_path'],
         orga=row['organization_unit'],
         derivaldate=derival_date,
-        ids=Idable(ids=identifiers, mainidc=mainidc),
+        ids=ids,
         type=row['type'],
-        patient=Idable([Identifier(id=row['subject_id'], code=row['subject_idcontainer'])]),
+        parent=parent,
+        patient=Idable(ids=patids, mainidc=patids[0].code),
         receiptdate=received_date,
         initialamount=initial_amount,
         restamount=rest_amount,
@@ -270,6 +304,7 @@ def extract_identifiers(row: dict, prefix:str="idc_") -> list:
             # Check if the value is not None before appending
             if row[key] is not None:
                 out[strippedkey] = row[key]
-    #  print(out)  # Debugging output
+    #print("extract identifiers row:")
+    #print(row)  # Debugging output
     return out
 

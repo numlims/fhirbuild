@@ -44,9 +44,9 @@ def genfhirid(fromstr:str):
     
 
 def fromisoornone(s:str):
-    """fromisoornone returns a date from iso or none"""
+    """fromisoornone returns a date from iso string or none if string is empty"""
 
-    if s is None:
+    if s is None or s == "":
         return None
     return datetime.fromisoformat(s)
 
