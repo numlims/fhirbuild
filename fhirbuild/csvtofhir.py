@@ -57,8 +57,8 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
 
     # make the Identifier instances for the sample
 
-    # get the ids without idcs_ prefix
-    raw_identifiers = extract_identifiers(row, prefix="idcs_")
+    # get the ids without sidc_ prefix
+    raw_identifiers = extract_identifiers(row, prefix="sidc_")
 
     # figure out the mainidc.
     # the csv mainidc (if given) overwrites the mainidc function parameter.
@@ -69,14 +69,14 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
         #print(raw_identifiers)
         mainidc = list(raw_identifiers.keys())[0]
 
-    # the mainidcs shouldn't be none.
+    # the mainsidc shouldn't be none.
     if mainidc is None:
         raise Exception("multiple sampleid types given and no mainidc specified.")
     # the mainidc needs to be in the identifiers.
     if not mainidc in raw_identifiers.keys():
         raise Exception(f"there is no column for mainidc {mainidc}, it needs to be in {list(raw_identifiers.keys())}")
 
-    # make an array of Identifier instances for each idcs_
+    # make an array of Identifier instances for each sidc_
     identifiers = []
     for type, value in raw_identifiers.items():
         try:
@@ -134,8 +134,8 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
         parent = Idable(ids=pids, mainidc=row["parent_idc"])
 
     # make a patient identifier
-    # get the patient id without idcp_ prefix
-    patid_raw = extract_identifiers(row, prefix="idcp_")
+    # get the patient id without pidc_ prefix
+    patid_raw = extract_identifiers(row, prefix="pidc_")
     # there is only one patient id allowed
     if len(patid_raw) > 1:
         print(f"error: more than one patient id for sample {ids.id()} given.")
@@ -178,7 +178,7 @@ def row_to_patient_fhir(row:dict, mainidc:str=None):
     update_with_overwrite = get_update_overwrite_flag(row)
 
     # identifiers
-    raw_identifiers = extract_identifiers(row, prefix="idcp_")
+    raw_identifiers = extract_identifiers(row, prefix="pidc_")
 
     # overwrite the mainidc argument by the csv column, if given.
     # if there is only one idc, take it as mainidc. else take it from the row.
@@ -215,32 +215,37 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
 
     row = DictPath(row)
 
-    # gather the components (columns prefixed by 'cmp_N_' for the Nth component)
-    comps = {} # map indexed by component index.
+    # gather the components (columns prefixed by 'cmp_t_' and 'cmp_v_' for type and value respectively)
+    comps = {} # map indexed by component code.
     for key in row.keys():
         # are we at a component column
         if re.match("^cmp_", key):
-            # each component comes with a index and different fields. 
-            # cmp_<index>_<field>
+            # each component comes with a type (t) and value (v) column:
+            # cmp_t_CODE cmp_v_CODE
             # for the field names see the observation section in readme.md.
             
-            # what's the component's index?
+            # is it type or value?
             a = key.split("_")
-            icomp = int(a[1])
+            typeorval = a[1]
+
+            # what's the code of the component?
+            code = re.sub(r"^cmp_(t|v)_", "", key)
             
             # is this component new? add it.
-            if not icomp in comps:
-                comps[icomp] = {}
+            if not code in comps:
+                comps[code] = {}
 
-            # what's the field of the component?
-            field = re.sub(r"^cmp_\d+_", "", key)
-
-            # put what's in the row at this key into the specific field for the ith component.
-            comps[icomp][field] = row[key]
+            # put what's in the row at this key either into the component type or value
+            if typeorval == "t":
+                comps[code]["type"] = row[key]
+            elif typeorval == "v":
+                comps[code]["value"] = row[key]
+            else:
+                print("error: each component needs a cmp_t_CODE and cmp_v_CODE column, see the fhirbuild readme.")
 
     comprecs = {}
     # make recs from each component.
-    for i, comp in comps.items():
+    for code, comp in comps.items():
         rec = None
         if comp["type"] == "BOOLEAN":
             rec = BooleanRec(value=comp["value"])
@@ -259,14 +264,23 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
             values = comp["value"].split(delim_cmp)
             rec = CatalogRec(values=values)
             
-        comprecs[comp["code"]] = rec
+        comprecs[code] = rec
         
-    # gather the sampleids (columns prefixed by 'idcs_') 
-    raw_identifiers = extract_identifiers(row, prefix="idcs_")
+    # gather the sampleids (columns prefixed by 'sidc_') 
+    raw_identifiers = extract_identifiers(row, prefix="sidc_")
     # make identifiers from them
     sids = [] # array of Identifiers
     for key, val in raw_identifiers.items():
         sids.append(Identifier(id = val, code = key))
+
+    # get the patient id
+    patid_raw = extract_identifiers(row, prefix="pidc_")
+    # there is only one patient id allowed
+    if len(patid_raw) > 1:
+        print(f"error: more than one patient id for sample {ids.id()} given.")
+    patids = []
+    for type, value in patid_raw.items():
+        patids.append(Identifier(code=type, id=value))
 
     effectivedate = fbh.fromisoornone(row["effective_date_time"])
 
@@ -274,7 +288,7 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
     finding = Finding(findingdate=effectivedate,
                       method=row['method'],
                       methodname=row['methodname'],
-                      patient=Idable(id=row['subject_id'], code="LIMSPSN", mainidc="LIMSPSN"),
+                      patient=Idable(ids=patids, mainidc=patids[0].code),
                       recs=comprecs,
                       sample=Idable(ids=sids, mainidc="SAMPLEID"),
                       sender=row['sender']
@@ -294,7 +308,7 @@ def get_update_overwrite_flag(row):
 def extract_identifiers(row: dict, prefix:str="idc_") -> list:
     """
     extract_identifiers extracts identifiers from a row dictionary.
-    identifiers are to be prefixed with 'idcs_' or 'idcp_' for sample and patient, respectively.
+    identifiers are to be prefixed with 'sidc_' or 'pidc_' for sample and patient, respectively.
     returns a dict keyed by idc code.
     """
     out = {}

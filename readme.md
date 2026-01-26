@@ -35,8 +35,8 @@ primary and derived csv columns:
 | concentration_unit | the unit of the concentration |
 | derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
 | fhirid | the identifier specific to fhir |
-| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
-| idcp_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
+| sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
+| pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
 | initial_amount | the initial amount |
 | initial_unit | the initial unit |
 | location_path | the location path |
@@ -53,20 +53,20 @@ primary and derived csv columns:
 | xpos | the x position on the rack |
 | ypos | the y position on the rack |
 
-aliquot groups are created with a subset of the columns for primary and
+aliquotgroups are created with a subset of the columns for primary and
 derived samples.
 
-aliquot groups don't have a sampleid, child aliquots reference their
+since aliquotgroups don't have a sampleid, child aliquots reference their
 aliquotgroup parent by fhirid or the index of the aliquotgroup in the
 csv file.
 
-aliqout group csv columns:
+aliqotgroup csv columns:
 
 | csv column | comment |
 | --- | --- |
 | category | = ALIQUOTGROUP. the category of the sample. |
 | fhirid | optional. the fhirid of this aliquotgroup. use fhirid or index to reference aliquotgroups by their child aliquots. |
-| idcp_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
+| pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
 | index | optional. the index of this aliquotgroup in the csv file. use index or fhirid to reference aliquotgroups by their child aliquots. |
 | organization_unit | the organization unit |
 | parent_sampleid | reference the aliquotgroup's primary sample by sampleid. |
@@ -83,15 +83,14 @@ of the MULTI and CATALOG cmp_* value lists.
 
 | csv column | comment |
 | --- | --- |
-| cmp_[i]_code | the messparam code of the ith component. |
-| cmp_[i]_type | the type of the ith component. BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. |
-| cmp_[i]_value | the value of the ith component. |
+| cmp_t_CODE | the type of the messparam with code CODE. can be BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. |
+| cmp_v_CODE | the value of the messparam with code CODE. |
 | effective_date_time | sollte das datetime heissen? |
-| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
+| sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
+| pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
 | methodname | the messprofile name |
 | method | the messprofile code |
 | sender | the EINS_CODE |
-| subject_id | a patient id |
 
 ### patient
 
@@ -100,7 +99,7 @@ csv input columns for patient.
 | csv column | comment |
 | --- | --- |
 | mainidc | the idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given |
-| idcp_[PSN\|LIMSPSN...] | patient ids specified by idcontainers |
+| pidc_[PSN\|LIMSPSN...] | patient ids specified by idcontainers |
 | fhirid | a fhirid for the patient |
 | organization_unit | the organization unit of the patient |
 | study | the trial the patient is in |
