@@ -248,21 +248,21 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
     for code, comp in comps.items():
         rec = None
         if comp["type"] == "BOOLEAN":
-            rec = BooleanRec(value=comp["value"])
+            rec = BooleanRec(rec=comp["value"])
         elif comp["type"] == "NUMBER":
-            rec = NumberRec(value=comp["value"])
+            rec = NumberRec(rec=comp["value"])
         elif comp["type"] == "DATE":
-            rec = DateRec(value=comp["value"]) # parse?
+            rec = DateRec(rec=comp["value"]) # parse?
         elif comp["type"] == "STRING":
-            rec = StringRec(value=comp["value"])
+            rec = StringRec(rec=comp["value"])
         elif comp["type"] == "MULTI":
             # split the value
             values = comp["value"].split(delim_cmp)
-            rec = MultiRec(values=values)
+            rec = MultiRec(rec=values)
         elif comp["type"] == "CATALOG":
             # split
             values = comp["value"].split(delim_cmp)
-            rec = CatalogRec(values=values)
+            rec = CatalogRec(rec=values)
             
         comprecs[code] = rec
         

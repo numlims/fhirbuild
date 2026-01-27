@@ -650,27 +650,27 @@ def fhir_obs(
         }
         # put something different depending on the type of the rec
         if type(rec) is BooleanRec:
-            comp["valueBoolean"] = bool(rec.value)
+            comp["valueBoolean"] = bool(rec.rec)
         if type(rec) is NumberRec: # are numbers always turned to quantities? # todo
             comp["valueQuantity"] = {
                 # shouldn't NumberRec.value already be a float?
-                "value": float(rec.value) if rec.value is not None else 0 # todo setting 0 is not right actually, cause the db returns NULL, but None isn't accepted by fhirimporter 
+                "value": float(rec.rec) if rec.value is not None else 0 # todo setting 0 is not right actually, cause the db returns NULL, but None isn't accepted by fhirimporter 
             }
             # set the unit only if it is there
             if rec.unit is not None and "valueQuantity" in comp:
                 comp["valueQuantity"]["unit"] = rec.unit # from laborvalue
 
         if type(rec) is StringRec:
-            comp["valueString"] = str(rec.value)
+            comp["valueString"] = str(rec.rec)
             # somehow strings may not be empty or null, so don't add the component if that's the case? todo how to delete a string?
-            if str(rec.value) is None or str(rec.value) == "":
+            if str(rec.rec) is None or str(rec.rec) == "":
                 continue # continue without adding the component
         if type(rec) is DateRec: 
-            comp["valueDateTime"] = datestring(rec.value) 
+            comp["valueDateTime"] = datestring(rec.rec) 
         if type(rec) is MultiRec:
             # collect the values 
             a = []
-            for val in rec.value:
+            for val in rec.rec:
                 a.append({
                     "system": "urn:centraxx:CodeSystem/UsageEntry-x", # sometimes the x is oid, but doesn't seem to need to be
                     "code": str(val)
@@ -682,7 +682,7 @@ def fhir_obs(
         if type(rec) is CatalogRec:
             # collect the values 
             a = []
-            for val in rec.value:
+            for val in rec.rec:
                 a.append({
                     "system": f"urn:centraxx:CodeSystem/ValueList-{rec.catalog}", # here apparently the catalog code is needed
                     "code": str(val)
