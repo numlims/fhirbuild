@@ -16,8 +16,16 @@ fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir -d ; -e utf-8-sig
 
 ## column names
 
+### specimen
+
 csv input column names for building an primary (master) or aliquot
-(derived) specimen:
+(derived) specimen.
+
+referencing parent aliquotgroups: aliquotgroups don't come with a
+sampleid. aliquots can reference their parent aliquotgroups either by
+fhirid or by the aliquotgroup's index in the csv file.
+
+primary and derived csv columns:
 
 | csv column | comment |
 | --- | --- |
@@ -27,55 +35,74 @@ csv input column names for building an primary (master) or aliquot
 | concentration_unit | the unit of the concentration |
 | derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
 | fhirid | the identifier specific to fhir |
-| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | one or more ids |
+| sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
+| pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
 | initial_amount | the initial amount |
 | initial_unit | the initial unit |
 | location_path | the location path |
+| mainidc | the sample idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given |
 | organization_unit | the organization unit |
-| parent_fhirid | for an aliquot, link to the fhirid of the parent aliquotgroup |
+| parent_fhirid | optional. if aliquots reference their aliquotgroups by fhirid, use this field. |
+| parent_index | optional. if aliquots reference their parent aliquotgroups by index in the csv file, use this field. |
 | received_date | the received date (eingangsdatum) |
 | receptacle |  the receptacle (probenbehaelter), becomes container |
 | reposition_date | the reposition date (einlagerungsdatum)
 | rest_amount | the rest amount |
 | rest_unit | the unit of the rest amount |
-| subject_id | the limspsn of the patient |
-| type | the sample's type (material, CIT etc) |
+| type | the sample's type (material: EDTA, CIT etc) |
 | xpos | the x position on the rack |
 | ypos | the y position on the rack |
 
-aliquot groups are created with a subset of the columns of primary and
-derived:
+aliquotgroups are created with a subset of the columns for primary and
+derived samples.
+
+since aliquotgroups don't have a sampleid, child aliquots reference their
+aliquotgroup parent by fhirid or the index of the aliquotgroup in the
+csv file.
+
+aliqotgroup csv columns:
 
 | csv column | comment |
 | --- | --- |
-| category | = ALIQUOTGROUP. the category of the sample |
-| fhirid | the identifier specific to fhir |
+| category | = ALIQUOTGROUP. the category of the sample. |
+| fhirid | optional. the fhirid of this aliquotgroup. use fhirid or index to reference aliquotgroups by their child aliquots. |
+| pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
+| index | optional. the index of this aliquotgroup in the csv file. use index or fhirid to reference aliquotgroups by their child aliquots. |
 | organization_unit | the organization unit |
-| parent_sampleid | for an aliquotgroup, link to the sampleid of the group's parent primary sample |
+| parent_sampleid | reference the aliquotgroup's primary sample by sampleid. |
+| parent_idc | the idcontainer of parent_sampleid. |
 | received_date | the received date (eingangsdatum) |
-| subject_id | the limspsn of the patient |
-| type | the sample's type (material, CIT etc) |
+| type | the sample's type (material: EDTA, CIT etc) |
 
-csv input column names for observation:
+### observation
+
+csv input column names for observation.
+
+additionally pass the --delim-cmp flag for the delimiter 
+of the MULTI and CATALOG cmp_* value lists.
 
 | csv column | comment |
 | --- | --- |
-| cmp_[...] | put your messwerte codes here, one column per code, each prefixed with 'cmp_' (for the component field in fhir) |
+| cmp_t_CODE | the type of the messparam with code CODE. can be BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. |
+| cmp_v_CODE | the value of the messparam with code CODE. |
 | effective_date_time | sollte das datetime heissen? |
-| idcs_[SAMPLEID\|EXTSAMPLEID\|...] | a sample id |
+| sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
+| pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
 | methodname | the messprofile name |
 | method | the messprofile code |
 | sender | the EINS_CODE |
-| subject_id | a patient id |
 
-csv input columns for patient:
+### patient
+
+csv input columns for patient.
 
 | csv column | comment |
 | --- | --- |
-| idcp_[PSN\|LIMSPSN...] | |
-| fhirid | |
-| organization_unit | |
-| study | |
+| mainidc | the idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given |
+| pidc_[PSN\|LIMSPSN...] | patient ids specified by idcontainers |
+| fhirid | a fhirid for the patient |
+| organization_unit | the organization unit of the patient |
+| study | the trial the patient is in |
 
 
 ## build and install

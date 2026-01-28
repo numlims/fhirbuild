@@ -9,6 +9,7 @@ docmake = ~/numlims.github.io
 version = $(shell git tag | tail -1 | tr -d v)
 
 all:
+	ct test/test.ct
 	python3 -m build --no-isolation
 
 install:
