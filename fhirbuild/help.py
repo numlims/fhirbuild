@@ -7,7 +7,7 @@ import csv
 def intornone(s:str):
     """intornone parses a string to int, and letters A,B,C,... to numbers 1,2,3... if it receives None it returns None."""
     #  print(f"intornone: {s}")
-    if s == None:
+    if s is None:
         return None
     if re.match(r"^[A-Za-z]$", s):
         #print("match letter")
@@ -22,7 +22,7 @@ def intornone(s:str):
 
 def datestring(d: datetime) -> str:
     """datestring returns fhir-compatible date string of date."""    
-    if d == None: 
+    if d is None: 
         return None
     # make the date time-zone aware (for utc +00:00 timezone)
     # d = d.replace(tzinfo=timezone.utc)
@@ -43,13 +43,30 @@ def genfhirid(fromstr:str):
     return str(uuid.uuid5(namespace, fromstr))  # Use uuid5 for deterministic ID generation
     
 
-def fromisoornone(s:str):
-    """fromisoornone returns a date from iso string or none if string is empty"""
-
-    if s is None or s == "":
+def fromisoornone(date_str: str) -> datetime | None:
+    """fromisoornone parses a ISO-8601 string or returns None if string is nullish.
+    Args:
+        date_str (str): The ISO-8601 date string.
+    Returns:
+        datetime or None: The parsed datetime object or None if input is nullish.   """
+    if is_nullish(date_str):
         return None
-    return datetime.fromisoformat(s)
 
+    return datetime.fromisoformat(date_str)
+
+def is_nullish(value: str) -> bool:
+    """Checks if the given string is None, empty or only contains whitespace 
+        or is the string 'null' (case insensitive).
+    Args:
+        value (str): The string to check.
+    Returns:
+        bool: True if the string is nullish, False otherwise.
+    """
+    if value is None:
+        return True
+    if value.strip() == "" or value.strip().lower() == "null":
+        return True
+    return False
 
 def open_csv_file(filename, delimiter=";", encoding="utf-8"):
     """
