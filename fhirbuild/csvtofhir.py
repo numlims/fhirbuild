@@ -56,7 +56,7 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     row = DictPath(row)    # common
 
     # get the ids without sidc_ prefix
-    raw_identifiers, mainidc = extract_and_resovle_identifiers(row, prefix="sidc_", mainidc=mainidc)
+    raw_identifiers, mainidc = extract_and_resolve_identifiers(row, prefix="sidc_", mainidc=mainidc)
 
     # make an array of Identifier instances for each sidc_
     identifiers = []
@@ -160,7 +160,7 @@ def row_to_patient_fhir(row:dict, mainidc:str=None):
     update_with_overwrite = get_update_overwrite_flag(row)
 
     # identifiers
-    raw_identifiers, mainidc = extract_and_resovle_identifiers(row, prefix="pidc_", mainidc=mainidc)
+    raw_identifiers, mainidc = extract_and_resolve_identifiers(row, prefix="pidc_", mainidc=mainidc)
 
     identifiers = []
 
@@ -292,28 +292,24 @@ def extract_identifiers(row: dict, prefix:str="idc_") -> list:
     #print(row)  # Debugging output
     return out
 
-def extract_and_resovle_identifiers(row: dict, prefix: str, mainidc: str) -> tuple:
+def extract_and_resolve_identifiers(row: dict, prefix: str, mainidc: str) -> tuple:
     """
-    Extract the identifiers from a row dictionary, resolves the mainidc if not given and 
-    checks that there is a mainidc in the row 
-    Uses only those idc's that have a non-nullish value in the row. 
-    To identifiy the column has to be prefixed with 'sidc_' or 'pidc_' for sample and patient, respectively.
-    If no mainidc is provided as argument, the function tries to find the mainidc by checking
-    if there is only one identfier in the row, or if there is a column named "mainidc".
+    Extract non-null identifier values from a row and determine the effective main identifier code.
+
+    The main identifier code is determined either from the provided argument or from the row content.
 
     Args:
         row (dict): The row dictionary to extract identifiers from.
         prefix (str): The prefix to identify identifier columns.
         mainidc (str): The main identifier code to check for.
     Returns:
-        tuple: A tuple containing a dictionary of extracted identifiers, keyed by idc code, and the mainidc string.
+        tuple[dict[str, Any], str]: (identifiers, resolved_mainidc)
     Raises:
-        ValueError: If no identifiers with the specified prefix are found in the row.
-        ValueError: If mainidc is not provided and cannot be determined from the row.
-        ValueError: If the mainidc specified does not have a corresponding column or the value is nullish in the row
         ValueError: If the prefix is not 'sidc_' or 'pidc_'
+        ValueError: If no identifiers with the specified prefix are found in the row.
+        ValueError: If the mainidc specified does not have a corresponding column or the value is nullish in the row
     """
-    resolved_mainidc  = mainidc 
+    
 
     if prefix not in ["sidc_", "pidc_"]:
         raise ValueError("prefix must be either 'sidc_' or 'pidc_'")
@@ -326,17 +322,38 @@ def extract_and_resovle_identifiers(row: dict, prefix: str, mainidc: str) -> tup
     if len(extracted_identifiers) == 0:
         raise ValueError(f"no none-nullish identifiers with prefix '{prefix}' found in row.")
 
-    # try to determine mainidc if not given as argument: if there is only one identifier, take that. 
-    # else look for a column "mainidc" in the row.
-    if not resolved_mainidc:
-        if len(extracted_identifiers) == 1:
-            resolved_mainidc = list(extracted_identifiers.keys())[0]
-        elif "mainidc" in row:
-            resolved_mainidc = row["mainidc"]
-        else:
-            raise ValueError("mainidc not provided and cannot be determined from the row, please provide mainidc as argument or add a column 'mainidc' to the csv with the idc code of the main identifier for each row.")
-    
+    resolved_mainidc = _determine_mainidc(extracted_identifiers, mainidc, row)
+
     if resolved_mainidc not in extracted_identifiers:
         raise ValueError(f"there is an nullish value or no column for mainidc {resolved_mainidc}, please check csv data and add a column for mainidc")
     
     return extracted_identifiers, resolved_mainidc
+
+def _determine_mainidc(identifiers: dict, mainidc_arg: str, row: dict) -> str:
+    """
+    Determine the main identifier code (mainidc) for a set of identifiers.
+    If mainidc_arg is provided, it is used as the mainidc. Otherwise, the function tries to determine the mainidc from the identifiers dictionary or the row.
+
+    Args:
+        identifiers (dict): A dictionary of identifiers keyed by idc code.
+        mainidc_arg (str): The main identifier code provided as an argument.
+        row (dict): The row dictionary to check for a "mainidc" column if needed.
+
+    Returns:
+        str: The provided or determined mainidc string.
+    
+    Raises:
+        ValueError: If mainidc_arg is not provided and cannot be determined from the identifiers or the row.
+
+"""
+    resolved_mainidc = mainidc_arg
+    # try to determine mainidc if not given as argument: if there is only one identifier, take that. 
+    # else look for a column "mainidc" in the row.
+    if not resolved_mainidc:
+        if len(identifiers) == 1:
+            resolved_mainidc = list(identifiers.keys())[0]
+        elif "mainidc" in row:
+            resolved_mainidc = row["mainidc"]
+        else:
+            raise ValueError("mainidc not provided and cannot be determined from the row, please provide mainidc as argument or add a column 'mainidc' to the csv with the idc code of the main identifier for each row.")
+    return resolved_mainidc
