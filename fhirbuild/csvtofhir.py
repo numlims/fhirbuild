@@ -307,7 +307,7 @@ def extract_and_resolve_identifiers(row: dict, prefix: str, mainidc: str) -> tup
     Raises:
         ValueError: If the prefix is not 'sidc_' or 'pidc_'
         ValueError: If no identifiers with the specified prefix are found in the row.
-        ValueError: If the mainidc specified does not have a corresponding column or the value is nullish in the row
+        ValueError: If the main identifier code specified but does not have a corresponding column or the value is nullish in the row
     """
     
 
