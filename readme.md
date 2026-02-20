@@ -29,29 +29,30 @@ primary and derived csv columns:
 
 | csv column | comment |
 | --- | --- |
-| category | MASTER or DERIVED. is the sample primary (MASTER) or aliquot (DERIVED)? |
+| category | MASTER (primary) or DERIVED (aliquot). |
 | collection_date | the collection date (entnahmedatum) |
 | concentration | the concentration |
 | concentration_unit | the unit of the concentration |
 | derival_date | the derival date (aufteilungsdatum) is the same as "datum der ersten einlagerung" |
-| fhirid | the identifier specific to fhir |
+| fhirid | optional. the identifier specific to fhir. generated from main sampleid if not given. |
 | sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
 | pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
 | initial_amount | the initial amount |
 | initial_unit | the initial unit |
 | location_path | the location path |
-| mainidc | the sample idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given |
+| mainidc | the sample idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given. |
 | organization_unit | the organization unit |
 | parent_fhirid | optional. if aliquots reference their aliquotgroups by fhirid, use this field. |
 | parent_index | optional. if aliquots reference their parent aliquotgroups by index in the csv file, use this field. |
 | received_date | the received date (eingangsdatum) |
 | receptacle |  the receptacle (probenbehaelter), becomes container |
-| reposition_date | the reposition date (einlagerungsdatum)
+| reposition_date | the reposition date (einlagerungsdatum) |
 | rest_amount | the rest amount |
 | rest_unit | the unit of the rest amount |
 | type | the sample's type (material: EDTA, CIT etc) |
-| xpos | the x position on the rack |
+| xpos | the x position on the rack ? 1- or 0-indexed ? |
 | ypos | the y position on the rack |
+| yxpos | the position on the rack in format A01. y: A, x: 01 |
 
 aliquotgroups are created with a subset of the columns for primary and
 derived samples.
