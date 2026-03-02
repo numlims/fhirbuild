@@ -30,7 +30,7 @@ def csv_to_patient_fhir(reader: csv.DictReader, mainidc:str=None) -> list[dict]:
 
     entries = []
     for row in reader:
-        entries.append([row_to_patient_fhir(row, mainidc=mainidc)])
+        entries.append(row_to_patient_fhir(row, mainidc=mainidc))
 
     return entries
 
