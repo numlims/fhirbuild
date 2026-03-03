@@ -124,7 +124,13 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     patids = []
     for type, value in patid_raw.items():
         patids.append(Identifier(code=type, id=value))
-    
+
+    # convert yxpos to xpos and ypos if given
+    xpos = intornone(row['ypos'])
+    ypos = intornone(row['ypos'])
+    if dig(row, "yxpos") is not None:
+        yxpos = dig(row, "yxpos")
+        (xpos, ypos) = a01toxy(yxpos)
         
     # make a sample instance from the row
     sample = Sample(
@@ -141,13 +147,26 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
         receiptdate=received_date,
         initialamount=initial_amount,
         restamount=rest_amount,
-        xposition=intornone(row['xpos']),
-        yposition=intornone(row['ypos']),
+        xposition=xpos,
+        yposition=ypos,
         receptacle=row['receptacle']
     )
 
     # return
     return sample
+
+def a01toxy(yxpos:str) -> (int, int):
+    """a01toxy converts an A01 position (y: A, x: 01) to a 0?1?-indexed (x,y) position."""
+    
+    # y is the letter
+    ystr = yxpos[0:1]
+    atoy = { "A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7, "H": 8 }
+    y = atoy[ystr]
+    
+    # x are the digits
+    x = int(yxpos[1:3])
+
+    return (x, y)
 
 def row_to_patient_fhir(row:dict, mainidc:str=None):
     """row_to_patient_fhir turns a csv row to a patient fhir entry. it lets update_with_overwrite be set for each row."""
