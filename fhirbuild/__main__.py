@@ -13,11 +13,13 @@ def parseargs():
     parser.add_argument("incsv", help="input csv")
     parser.add_argument("outdir", help="fhir json files land here")
     parser.add_argument("-d", help="delimiter (assumed ;)", required=False, default=";")
-    parser.add_argument("--delim-cmp", help="delimiter for the cmp_value field for the multi-value cmp_types MULTI and CATALOG (assumed ,). needs to be different that the delimiter of the csv file.", required=False, default=",")    
+    parser.add_argument("--delim-cmp", help="delimiter for the cmp value field for the multi-value cmp types MULTI and CATALOG (assumed ,)", required=False, default=",")    
     parser.add_argument("-e", help="encoding (assumed utf-8)", required=False, default="utf-8")
     parser.add_argument("--delete", help="delete these fhir resources")
     parser.add_argument("--cxx", help="cxx version. 3|4")
     parser.add_argument("--mainidc", help="the idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given.")
+    parser.add_argument("--db", help="db target")
+    parser.add_argument("--load-required", help="db target")    
     args = parser.parse_args()
     return args
 
@@ -38,7 +40,7 @@ def main():
     # build what's needed
     match args.type:
         case "observation":
-            findings = csv_to_findings(dict_reader, args.delim_cmp)
+            findings = csv_to_findings(dict_reader, args.delim_cmp, db=args.db)
             write_observations(findings, dir=args.outdir, batchsize=10, cxx=3)
         case "specimen":
             samples = csv_to_samples(dict_reader, mainidc=args.mainidc)

@@ -32,7 +32,7 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
         print(json.dumps(bundles, indent=4))    
 
     # write the bundles
-    return writeout(bundles, dir, "patient", wrap=wrap)
+    return writeout(bundles, dir, typ="patient", wrap=wrap)
 
 def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3) -> list:
     """write_samples writes fhir resources of Samples and returns a list containing the written directory. it fills in missing fhirids."""
@@ -62,7 +62,7 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         print(json.dumps(bundles, indent=4))
         
     # write the bundles
-    return writeout(bundles, dir, "sample", wrap=wrap)
+    return writeout(bundles, dir, typ="sample", wrap=wrap)
 
 
 def _fill_in_fhirids(samples):
@@ -160,7 +160,7 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
         print(json.dumps(bundles, indent=4))
 
     # write the bundles
-    return writeout(bundles, dir, "obs", wrap=wrap)
+    return writeout(bundles, dir, typ="obs", wrap=wrap)
 
 
 def bundle(entries, n, restype:str=None, cxx:int=None) -> list:
@@ -185,9 +185,14 @@ def bundle(entries, n, restype:str=None, cxx:int=None) -> list:
     return bundles
     
     
-def writeout(bundles:list, dir:str, type:str, wrap:bool=False):
-    """writeout writes fhir bundles into a directory as seperate files, wrapping them into a timestamped directory if wrap is True."""
+def writeout(bundles:list, dir:str, typ:str=None, wrap:bool=False, outname:str=None):
+    """writeout writes fhir bundles into a directory as seperate files, wrapping them into a timestamped directory if wrap is True. outname overwrites the default timestamps and typ names for the written files."""
+    # use timestamp and typ if no outname is passed    
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    if outname is None:
+        outname = timestamp
+        if typ is not None:
+            outname += "_" + typ
 
     # wrap the output into a timestamped directory if wished
     outdir = None
@@ -202,17 +207,20 @@ def writeout(bundles:list, dir:str, type:str, wrap:bool=False):
     # how broad should the zero-place holder for the pagenumber in the filenames be? (eg for 999 pages 3, for 1000 pages 4)
     page_num_width = str(int(math.log10(len(bundles))) + 1)
 
-    # write each bundle in a seperate file, using the same timestamp and increasing page numbers.
+    out = []
+
+    # write each bundle in a seperate file, using the same outname and increasing page numbers.
     for i, bundle in enumerate(bundles):
-        fstring = "%s_%s_p%0" + page_num_width + "d.json"
-        filename = fstring % (timestamp, type, i)
+        fstring = "%s_p%0" + page_num_width + "d.json"
+        filename = fstring % (outname, i)
         # filename = timestamp + "_" + type + "_p" + str(i) + ".json"
         path = os.path.join(outdir, filename)
+        out.append(path)
         with open(path, 'w', encoding='utf-8') as outf:
             json.dump(bundle, outf, indent=4, ensure_ascii=False)
 
     # for now, only return the directory path, not the paths of the written files
-    return [outdir]
+    return out
 
 
 
@@ -606,14 +614,14 @@ def fhir_obs(
             "extension": [
             {
                 "url": "https://fhir.centraxx.de/extension/updateWithOverwrite",
-                "valueBoolean": update_with_overwrite
+                "valueBoolean": True # update_with_overwrite
             }
             ],
                 
             "status": "unknown",
             "code": {
                 "coding": [
-                    fhir_coding(code=str(finding.methodname))
+                    fhir_coding(code=str(finding.name))
                 ]
             },
             "subject": {
@@ -684,7 +692,9 @@ def fhir_obs(
             a = []
             for val in rec.rec:
                 a.append({
-                    "system": f"urn:centraxx:CodeSystem/ValueList-{rec.catalog}", # here apparently the catalog code is needed
+                    #"system": f"urn:centraxx:CodeSystem/ValueList-{rec.catalog}", # here apparently the catalog code is needed
+                    #"system": f"urn:centraxx:CodeSystem/Catalog#c.{rec.catalog}", # here apparently the catalog code is needed
+                    "system": f"urn:centraxx:CodeSystem/Catalog#c.RAW_MATERIAL", # todo remove
                     "code": str(val)
                     })
             # put the collected values into the coding field of a value codeable concept

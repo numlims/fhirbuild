@@ -12,6 +12,7 @@ description = "build fhir specimens or observations"
 readme = "readme.md"
 requires-python = ">=3.10"
 dependencies = [
+  "dbcq @ git+https://github.com/numlims/dbcq.git",
   "dict_path",
   "pandas",
   "tram @ git+https://github.com/numlims/tram.git"

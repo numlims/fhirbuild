@@ -14,6 +14,7 @@ import re
 import math
 import fhirbuild.help as fbh
 from fhirbuild.help import intornone, is_nullish
+from dbcq import dbcq
 
 def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     """csv_to_samples turns a csv file into a list of Sample instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
@@ -35,7 +36,7 @@ def csv_to_patient_fhir(reader: csv.DictReader, mainidc:str=None) -> list[dict]:
     return entries
 
 
-def csv_to_findings(reader: csv.DictReader, delim_cmp:str):
+def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:dbcq=None):
     """csv_to_findings turns csv rows to a list of Finding instances."""
 
     rows = list(reader)
@@ -44,7 +45,7 @@ def csv_to_findings(reader: csv.DictReader, delim_cmp:str):
     out = []
 
     for i, row in enumerate(rows):
-        out.append(row_to_finding(row, delim_cmp, i))
+        out.append(row_to_finding(row, delim_cmp))
 
     return out
 
@@ -198,7 +199,7 @@ def row_to_patient_fhir(row:dict, mainidc:str=None):
 
 
 
-def row_to_finding(row:dict, i, delim_cmp, delete=False):
+def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
     """row_to_finding turns a csv row to a Finding instance."""
     entry = None
 
@@ -268,15 +269,15 @@ def row_to_finding(row:dict, i, delim_cmp, delete=False):
     if len(patid_raw) > 1:
         print(f"error: more than one patient id for sample {ids.id()} given.")
     patids = []
-    for type, value in patid_raw.items():
-        patids.append(Identifier(code=type, id=value))
+    for typ, val in patid_raw.items():
+        patids.append(Identifier(code=typ, id=val))
 
     effectivedate = fbh.fromisoornone(row["effective_date_time"])
 
     # build the finding
     finding = Finding(findingdate=effectivedate,
                       method=row['method'],
-                      methodname=row['methodname'],
+                      name=row['name'],
                       patient=Idable(ids=patids, mainidc=patids[0].code),
                       recs=comprecs,
                       sample=Idable(ids=sids, mainidc="SAMPLEID"),

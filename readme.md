@@ -21,9 +21,9 @@ fhirbuild observation GSA_prep\out\gsa-korr.csv tmp-dir -d ; -e utf-8-sig
 csv input column names for building an primary (master) or aliquot
 (derived) specimen.
 
-referencing parent aliquotgroups: aliquotgroups don't come with a
-sampleid. aliquots can reference their parent aliquotgroups either by
-fhirid or by the aliquotgroup's index in the csv file.
+aliquotgroups don't come with a sampleid. aliquots can reference their
+parent aliquotgroups either by fhirid or by the aliquotgroup's index
+in the csv file.
 
 primary and derived csv columns:
 
@@ -84,13 +84,13 @@ of the MULTI and CATALOG cmp_* value lists.
 
 | csv column | comment |
 | --- | --- |
-| cmp_t_CODE | the type of the messparam with code CODE. can be BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. |
-| cmp_v_CODE | the value of the messparam with code CODE. |
+| cmp_CODE | the value of the messparam with code CODE. |
+| cmpt_CODE | optional. the type of the messparam with code CODE. can be BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. can also be passed via --param-type or --param-type-yaml. if none given STRING assumed. |
 | effective_date_time | sollte das datetime heissen? |
 | sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
 | pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
-| methodname | the messprofile name |
-| method | the messprofile code |
+| method | the method (messprofil) code |
+| name | the name of the finding (messbefund) |
 | sender | the EINS_CODE |
 
 ### patient
