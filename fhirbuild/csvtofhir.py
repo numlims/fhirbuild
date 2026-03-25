@@ -129,8 +129,8 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     # convert yxpos to xpos and ypos if given
     xpos = intornone(row['ypos'])
     ypos = intornone(row['ypos'])
-    if dig(row, "yxpos") is not None:
-        yxpos = dig(row, "yxpos")
+    if row.get("yxpos") is not None:
+        yxpos = row.get("yxpos")
         (xpos, ypos) = a01toxy(yxpos)
         
     # make a sample instance from the row
