@@ -13,8 +13,9 @@ import os
 import re
 import math
 import fhirbuild.help as fbh
-from fhirbuild.help import intornone, is_nullish
+from fhirbuild.help import intornone, is_nullish, letter_index_value
 from dbcq import dbcq
+from typing import Optional 
 
 def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     """csv_to_samples turns a csv file into a list of Sample instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
@@ -131,7 +132,7 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     ypos = intornone(row['ypos'])
     if row.get("yxpos") is not None:
         yxpos = row.get("yxpos")
-        (xpos, ypos) = a01toxy(yxpos)
+        (xpos, ypos) = parse_tube_position(yxpos)
         
     # make a sample instance from the row
     sample = Sample(
@@ -156,18 +157,32 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     # return
     return sample
 
-def a01toxy(yxpos:str) -> (int, int):
-    """a01toxy converts an A01 position (y: A, x: 01) to a 0?1?-indexed (x,y) position."""
-    
-    # y is the letter
-    ystr = yxpos[0:1]
-    atoy = { "A": 1, "B": 2, "C": 3, "D": 4, "E": 5, "F": 6, "G": 7, "H": 8 }
-    y = atoy[ystr]
-    
-    # x are the digits
-    x = int(yxpos[1:3])
+def parse_tube_position(tube_position: Optional[str | None]) -> tuple[int, int]:
+    """Converts a tube position (e.g. "A05") to a 1-indexed (x, y) position.
+        Args:
+            tube_position (str): The tube position in the format of a row (Y) letter followed by a column (X) number (e.g., "A01").
+        Returns:
+            tuple[int, int]: A 1-indexed (x, y) tuple where the number is the x-position and the letter is the y-position,
+                e.g. "A05" becomes (5, 1).
+    """
 
-    return (x, y)
+    if tube_position is None or tube_position == "":
+        raise ValueError("tube_position must not be None or empty")
+
+    y_pos_letter = tube_position[0:1]
+    x_pos = tube_position[1:]
+    
+    if not y_pos_letter.isalpha():
+        raise ValueError(f"invalid y-position {tube_position}: y needs to be a letter.")
+    
+    if not x_pos.isdigit():
+        raise ValueError(f"invalid x-position {tube_position}: x needs to be a number.")
+
+    y_pos = letter_index_value(y_pos_letter)
+    
+    x_pos = int(x_pos)
+
+    return (x_pos, y_pos)
 
 def row_to_patient_fhir(row:dict, mainidc:str=None):
     """row_to_patient_fhir turns a csv row to a patient fhir entry. it lets update_with_overwrite be set for each row."""
