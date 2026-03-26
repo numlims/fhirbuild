@@ -128,7 +128,7 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
         patids.append(Identifier(code=type, id=value))
 
     # convert yxpos to xpos and ypos if given
-    xpos = intornone(row['ypos'])
+    xpos = intornone(row['xpos'])
     ypos = intornone(row['ypos'])
     if row.get("yxpos") is not None:
         yxpos = row.get("yxpos")
