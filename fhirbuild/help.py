@@ -82,3 +82,9 @@ def open_csv_file(filename, delimiter=";", encoding="utf-8"):
         print(f"Error opening file {filename}: {e}")
         sys.exit(1)
 
+def letter_index_value(letter: str) -> int:
+    if not letter.isalpha():
+        raise ValueError(f"Input must be a single letter, got '{letter}'")
+    numeric_value = ord(letter.upper()) - ord('A') + 1
+    return numeric_value
+
