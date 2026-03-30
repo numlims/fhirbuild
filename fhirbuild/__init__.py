@@ -54,7 +54,7 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         entries.append(entry)
 
     # bundles the entries
-    bundles = bundle(entries, batchsize, restype="Sample", cxx=cxx)
+    bundles = bundle(entries, batchsize, cxx=cxx)
 
     # if print is set, print
     if should_print:
@@ -162,7 +162,7 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
     return writeout(bundles, dir, typ="obs", wrap=wrap)
 
 
-def bundle(entries, n, restype:str=None, cxx:int=None) -> list:
+def bundle(entries, n, cxx:int=None) -> list:
     """bundle puts n entries in a bundle each."""
 
     bundles = []
@@ -179,7 +179,7 @@ def bundle(entries, n, restype:str=None, cxx:int=None) -> list:
         batch.append(entry)
 
     # append the last batch
-    bundles.append(fhir_bundle(batch, restype=restype, cxx=cxx))
+    bundles.append(fhir_bundle(batch, cxx=cxx))
 
     return bundles
     
@@ -273,11 +273,9 @@ def fhir_specimen(sample:Sample=None,
 
     # todo also build aliquotgroups?
     
-    # print(f"fhir_specimen: {sample.category} {fhirid} {sample.collected_date} {sample.xposition} {sample.yposition}")
-    
-    print(f"CXX{centraxx_version}")
+ 
+
     codesystems = consts.CODESYSTEMS.get(f"CXX{centraxx_version}", {})
-    print(codesystems)
 
     entry = {
         "fullUrl": f"Specimen/{sample.id('fhirid')}",
@@ -349,12 +347,15 @@ def fhir_specimen(sample:Sample=None,
     
     # bundle the values that end up in the sprec extension
 
+    # TODO useSprec shoulb be determained by sprec-fields but not all sprec relevant fields are implemented yet,
+    # so far we set the value to False
+
     sprecext = {
         "url": "https://fhir.centraxx.de/extension/sprec",
         "extension": [
             {
                 "url": "https://fhir.centraxx.de/extension/sprec/useSprec",
-                "valueBoolean": True
+                "valueBoolean": False
             }
         ]
     }
@@ -571,17 +572,14 @@ def fhir_aliquotgroup(
 
 
 
-def fhir_bundle(entries:list, restype:str=None, cxx:int=3):
+def fhir_bundle(entries:list, cxx:int=3):
     """fhir_bundle packs a list of entries into a fhir bundle."""
     bundle = {
         "type": "transaction",
         "entry": entries
     }
-    # set resource type to bundle for cxx3, to the specific type for cxx4
-    if cxx == 3:
-        bundle["resourceType"] = "Bundle"
-    elif cxx == 4:
-        bundle["resourceType"] = restype
+    # set resource type to bundle
+    bundle["resourceType"] = "Bundle"
 
     return bundle
 
