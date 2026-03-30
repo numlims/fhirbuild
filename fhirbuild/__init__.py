@@ -12,7 +12,7 @@ import os
 import math
 import json
 from fhirbuild.help import datestring, genfhirid
-
+from .constants import constants as consts
 
 def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3):
     """write_patients writes fhir resources of patients and returns a list containing the written directory."""
@@ -46,7 +46,7 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         if sample.category == "ALIQUOTGROUP":
             entry = fhir_aliquotgroup(sample)
         elif sample.category == "MASTER" or sample.category == "DERIVED":
-            entry = fhir_specimen(sample)
+            entry = fhir_specimen(sample, centraxx_version=cxx)
         else:
             raise Exception(f"sample category {sample.category} is not allowed.")
 
@@ -267,13 +267,18 @@ def fhir_extension(url:str, d):
 
 
 def fhir_specimen(sample:Sample=None,
-                update_with_overwrite:bool=False ): 
+                update_with_overwrite:bool=False,
+                centraxx_version: int=3): 
     """fhir_specimen builds a fhir specimen. pass the sample's fhirid as an Identifier with code 'fhirid' for the sample, and, for deriveds, the fhirid of its parent aliquotgroup as an Identifier with code 'fhirid' of sample.parent. by tying the fhirids directly to the sample, calling methods can receive fhirids for lists of Samples e.g. from csv without having to sneak them in via an extra argument."""
 
     # todo also build aliquotgroups?
     
     # print(f"fhir_specimen: {sample.category} {fhirid} {sample.collected_date} {sample.xposition} {sample.yposition}")
     
+    print(f"CXX{centraxx_version}")
+    codesystems = consts.CODESYSTEMS.get(f"CXX{centraxx_version}", {})
+    print(codesystems)
+
     entry = {
         "fullUrl": f"Specimen/{sample.id('fhirid')}",
         "resource": {
@@ -310,7 +315,7 @@ def fhir_specimen(sample:Sample=None,
                 ]
             },
             "subject": {
-                "identifier": fhir_identifier(sample.patient.identifier())
+                "identifier": fhir_identifier(sample.patient.identifier(), codesystems.get(consts.IDCONTAINERTYPE, "urn:centraxx")) 
             },
             # "receivedTime": # added later
             # "parent": [ ], # filled later
@@ -340,7 +345,7 @@ def fhir_specimen(sample:Sample=None,
     # fill the identifiers.  skip the oid for now
     for id in sample.ids:
          if id.code != "oid" and id.code != "fhirid" and id.code != "index": # todo move the filtering into _fill_fhirid method?
-             entry["resource"]["identifier"].append(fhir_identifier(id))
+             entry["resource"]["identifier"].append(fhir_identifier(id, codesystems.get(consts.IDCONTAINERTYPE, "urn:centraxx")))
     
     # bundle the values that end up in the sprec extension
 
