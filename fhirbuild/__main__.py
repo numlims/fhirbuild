@@ -5,6 +5,7 @@ import argparse
 from fhirbuild.csvtofhir import csv_to_samples, csv_to_findings, csv_to_patient_fhir
 from fhirbuild import writeout, write_samples, write_observations, bundle
 import fhirbuild.help as fbh
+import versionflag
 
 def parseargs():
     """parseargs parses command line arguments."""
@@ -19,7 +20,8 @@ def parseargs():
     parser.add_argument("--cxx", help="cxx version. 3|4")
     parser.add_argument("--mainidc", help="the idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given.")
     parser.add_argument("--db", help="db target")
-    parser.add_argument("--load-required", help="db target")    
+    parser.add_argument("--load-required", help="db target")
+    versionflag.flag(parser, "fhirbuild")
     args = parser.parse_args()
     return args
 
