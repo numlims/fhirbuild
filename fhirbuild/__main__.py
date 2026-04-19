@@ -48,7 +48,7 @@ def main():
         case "patient":
             # at the moment don't make Patient instances, cause each csv row carries an updateWithOverwrite field that couldn't be saved directly to Patients at the moment (make a FhirPatient that inherits from Patient? maybe that's a bit overdone). could we pass a --update-with-overwrite flag for all rows, or does it make sense to keep this row-specific?
             entries = csv_to_patient_fhir(dict_reader, mainidc=args.mainidc)
-            bundles = bundle(entries, 10, restype="Patient", cxx=args.cxx)
+            bundles = bundle(entries, 10)
             writeout(bundles, args.outdir, args.type)
         case _:
             print(f"Unknown type: {args.type}")
