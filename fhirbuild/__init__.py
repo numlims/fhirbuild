@@ -54,7 +54,7 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         entries.append(entry)
 
     # bundles the entries
-    bundles = bundle(entries, batchsize, cxx=cxx)
+    bundles = bundle(entries, batchsize)
 
     # if print is set, print
     if should_print:
@@ -152,7 +152,7 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
         i += 1
 
     # bundles the entries
-    bundles = bundle(entries, batchsize, restype="Observation", cxx=3)
+    bundles = bundle(entries, batchsize)
 
     # if print is set, print
     if should_print:
@@ -162,7 +162,7 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
     return writeout(bundles, dir, typ="obs", wrap=wrap)
 
 
-def bundle(entries, n, cxx:int=None) -> list:
+def bundle(entries, n) -> list:
     """bundle puts n entries in a bundle each."""
 
     bundles = []
@@ -172,14 +172,14 @@ def bundle(entries, n, cxx:int=None) -> list:
         # after each n entries
         if i > 0 and i % n == 0:
             # append a bundle of the full batch
-            bundles.append(fhir_bundle(batch, restype=restype, cxx=cxx))
+            bundles.append(fhir_bundle(batch))
             # reset the batch
             batch = []
         # add to the batch
         batch.append(entry)
 
     # append the last batch
-    bundles.append(fhir_bundle(batch, cxx=cxx))
+    bundles.append(fhir_bundle(batch))
 
     return bundles
     
@@ -572,7 +572,7 @@ def fhir_aliquotgroup(
 
 
 
-def fhir_bundle(entries:list, cxx:int=3):
+def fhir_bundle(entries:list):
     """fhir_bundle packs a list of entries into a fhir bundle."""
     bundle = {
         "type": "transaction",
