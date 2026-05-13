@@ -210,7 +210,7 @@ def writeout(bundles:list, dir:str, typ:str=None, wrap:bool=False, outname:str=N
 
     # write each bundle in a seperate file, using the same outname and increasing page numbers.
     for i, bundle in enumerate(bundles):
-        fstring = "%s_p%0" + page_num_width + "d.json"
+        fstring = "%s_P%0" + page_num_width + "d.json"
         filename = fstring % (outname, i)
         # filename = timestamp + "_" + type + "_p" + str(i) + ".json"
         path = os.path.join(outdir, filename)

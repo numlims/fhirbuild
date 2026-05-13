@@ -84,8 +84,8 @@ of the MULTI and CATALOG cmp_* value lists.
 
 | csv column | comment |
 | --- | --- |
-| cmp_CODE | the value of the messparam with code CODE. |
-| cmpt_CODE | optional. the type of the messparam with code CODE. can be BOOL, NUMBER, STRING, DATE, MULTI, CATALOG. can also be passed via --param-type or --param-type-yaml. if none given STRING assumed. |
+| cmp_CODE | the value of the messparam with code CODE. DATE values: iso string. BOOLEAN values: true|false |
+| cmpt_CODE | optional. the type of the messparam with code CODE. can be BOOLEAN, NUMBER, STRING, DATE, MULTI, CATALOG. can also be passed via --param-type or --param-type-yaml. if none given STRING assumed. |
 | effective_date_time | sollte das datetime heissen? |
 | sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
 | pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
