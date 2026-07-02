@@ -12,6 +12,7 @@ import os
 import math
 import json
 from fhirbuild.help import datestring, genfhirid
+from fhirio import fhirio
 
 
 def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3):
@@ -24,14 +25,14 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
         entries.append(fhir_patient(pat))
 
     # bundles the entries 
-    bundles = bundle(entries, batchsize, restype="Patient", cxx=cxx)
+    bundles = fhirio.bundle(entries, batchsize, restype="Patient", cxx=cxx)
 
     # if print is set, print
     if should_print:
         print(json.dumps(bundles, indent=4))    
 
     # write the bundles
-    return writeout(bundles, dir, typ="patient", wrap=wrap)
+    return fhirio.write_bundles(bundles, dir, typ="patient", wrap=wrap)
 
 def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3) -> list:
     """write_samples writes fhir resources of Samples and returns a list of the files written. it fills in missing fhirids."""
@@ -54,14 +55,14 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
         entries.append(entry)
 
     # bundles the entries
-    bundles = bundle(entries, batchsize, restype="Sample", cxx=cxx)
+    bundles = fhirio.bundle(entries, batchsize, restype="Sample", cxx=cxx)
 
     # if print is set, print
     if should_print:
         print(json.dumps(bundles, indent=4))
         
     # write the bundles
-    return writeout(bundles, dir, typ="sample", wrap=wrap)
+    return fhirio.write_bundles(bundles, dir, typ="sample", wrap=wrap)
 
 
 def _fill_in_fhirids(samples):
@@ -152,74 +153,15 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
         i += 1
 
     # bundles the entries
-    bundles = bundle(entries, batchsize, restype="Observation", cxx=3)
+    bundles = fhirio.bundle(entries, batchsize, restype="Observation", cxx=3)
 
     # if print is set, print
     if should_print:
         print(json.dumps(bundles, indent=4))
 
     # write the bundles
-    return writeout(bundles, dir, typ="obs", wrap=wrap)
+    return fhirio.write_bundles(bundles, dir, typ="obs", wrap=wrap)
 
-
-def bundle(entries, n, restype:str=None, cxx:int=None) -> list:
-    """bundle puts n entries in a bundle each."""
-
-    bundles = []
-    batch = []
-
-    for i, entry in enumerate(entries):
-        # after each n entries
-        if i > 0 and i % n == 0:
-            # append a bundle of the full batch
-            bundles.append(fhir_bundle(batch, restype=restype, cxx=cxx))
-            # reset the batch
-            batch = []
-        # add to the batch
-        batch.append(entry)
-
-    # append the last batch
-    bundles.append(fhir_bundle(batch, restype=restype, cxx=cxx))
-
-    return bundles
-    
-    
-def writeout(bundles:list, dir:str, typ:str=None, wrap:bool=False, outname:str=None):
-    """writeout writes fhir bundles into a directory as seperate files, returning a list of the files written. it wraps the files into a timestamped directory if wrap is True. outname overwrites the default timestamps and typ names for the written files."""
-    # use timestamp and typ if no outname is passed    
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    if outname is None:
-        outname = timestamp
-        if typ is not None:
-            outname += "_" + typ
-
-    # wrap the output into a timestamped directory if wished
-    outdir = None
-    if wrap:
-        outdir = os.path.join(dir, timestamp)
-    else:
-        outdir = dir
-
-    # create the output directory
-    os.makedirs(outdir, exist_ok=True)    
-    
-    # how broad should the zero-place holder for the pagenumber in the filenames be? (eg for 999 pages 3, for 1000 pages 4)
-    page_num_width = str(int(math.log10(len(bundles))) + 1)
-
-    out = []
-
-    # write each bundle in a seperate file, using the same outname and increasing page numbers.
-    for i, bundle in enumerate(bundles):
-        fstring = "%s_P%0" + page_num_width + "d.json"
-        filename = fstring % (outname, i)
-        # filename = timestamp + "_" + type + "_p" + str(i) + ".json"
-        path = os.path.join(outdir, filename)
-        out.append(path)
-        with open(path, 'w', encoding='utf-8') as outf:
-            json.dump(bundle, outf, indent=4, ensure_ascii=False)
-
-    # return the paths of all written files.
-    return out
 
 
 
@@ -564,21 +506,6 @@ def fhir_aliquotgroup(
 
     return entry
 
-
-
-def fhir_bundle(entries:list, restype:str=None, cxx:int=3):
-    """fhir_bundle packs a list of entries into a fhir bundle."""
-    bundle = {
-        "type": "transaction",
-        "entry": entries
-    }
-    # set resource type to bundle for cxx3, to the specific type for cxx4
-    if cxx == 3:
-        bundle["resourceType"] = "Bundle"
-    elif cxx == 4:
-        bundle["resourceType"] = restype
-
-    return bundle
 
 
 def fhir_obs(
