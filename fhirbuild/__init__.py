@@ -15,7 +15,7 @@ from fhirbuild.help import datestring, genfhirid
 
 
 def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3):
-    """write_patients writes fhir resources of patients and returns a list containing the written directory."""
+    """write_patients writes fhir resources of patients and returns a list of the files written."""
 
     # get the entries
     entries = []
@@ -34,7 +34,7 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
     return writeout(bundles, dir, typ="patient", wrap=wrap)
 
 def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3) -> list:
-    """write_samples writes fhir resources of Samples and returns a list containing the written directory. it fills in missing fhirids."""
+    """write_samples writes fhir resources of Samples and returns a list of the files written. it fills in missing fhirids."""
 
     # fill in fhirids, taking parent-child relations into account.
     _fill_in_fhirids(samples)
@@ -138,7 +138,7 @@ def _fill_in_fhirids(samples):
 
 
 def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx=3) -> list:
-    """write_observations writes fhir resources of observations and returns a list containing the written directory.""" 
+    """write_observations writes fhir resources of observations and returns a list of the files written."""
 
     # get the entries
     entries = []
@@ -185,7 +185,7 @@ def bundle(entries, n, restype:str=None, cxx:int=None) -> list:
     
     
 def writeout(bundles:list, dir:str, typ:str=None, wrap:bool=False, outname:str=None):
-    """writeout writes fhir bundles into a directory as seperate files, wrapping them into a timestamped directory if wrap is True. outname overwrites the default timestamps and typ names for the written files."""
+    """writeout writes fhir bundles into a directory as seperate files, returning a list of the files written. it wraps the files into a timestamped directory if wrap is True. outname overwrites the default timestamps and typ names for the written files."""
     # use timestamp and typ if no outname is passed    
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     if outname is None:
@@ -218,7 +218,7 @@ def writeout(bundles:list, dir:str, typ:str=None, wrap:bool=False, outname:str=N
         with open(path, 'w', encoding='utf-8') as outf:
             json.dump(bundle, outf, indent=4, ensure_ascii=False)
 
-    # for now, only return the directory path, not the paths of the written files
+    # return the paths of all written files.
     return out
 
 
@@ -661,7 +661,7 @@ def fhir_obs(
         if type(rec) is NumberRec: # are numbers always turned to quantities? # todo
             comp["valueQuantity"] = {
                 # shouldn't NumberRec.value already be a float?
-                "value": float(rec.rec) if rec.value is not None else 0 # todo setting 0 is not right actually, cause the db returns NULL, but None isn't accepted by fhirimporter 
+                "value": float(rec.rec) if rec.rec is not None else 0 # todo setting 0 is not right actually, cause the db returns NULL, but None isn't accepted by fhirimporter 
             }
             # set the unit only if it is there
             if rec.unit is not None and "valueQuantity" in comp:
@@ -679,7 +679,8 @@ def fhir_obs(
             a = []
             for val in rec.rec:
                 a.append({
-                    "system": "urn:centraxx:CodeSystem/UsageEntry-x", # sometimes the x is oid, but doesn't seem to need to be
+                    #"system": "urn:centraxx:CodeSystem/UsageEntry-x", # sometimes the x is oid, but doesn't seem to need to be
+                    "system": "urn:centraxx:CodeSystem/UsageEntry", # from freiburg observations
                     "code": str(val)
                     })
             # put the collected values into the coding field of a value codeable concept
