@@ -228,12 +228,12 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
     comps = {} # map indexed by component code.
     for key in row.keys():
         # are we at a component/labval column?
-        # columns named cmp_<LABVAL> hold the content for the labval.
+        # columns named cmp_v_<LABVAL> hold the value for the labval.
         # for the field names see the observation section in readme.md.        
-        if key is not None and re.match("^cmp_", key):
+        if key is not None and re.match("^cmp_v_", key):
 
             # what's the code of the component?
-            code = re.sub(r"^cmp_", "", key)
+            code = re.sub(r"^cmp_v_", "", key)
             
             # is this component new? add it. let the type default to string.
             if not code in comps:
@@ -245,11 +245,11 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
             # put what's in the row at this key into the component value
             comps[code]["value"] = row[key]
                 
-        # columns named cmpt_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. TODO: can also be passed via flag (or file?)
-        if key is not None and re.match("^cmpt_", key):
+        # columns named cmp_t_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. TODO: can also be passed via flag (or file?)
+        if key is not None and re.match("^cmp_t_", key):
 
             # what's the code of the component?
-            code = re.sub(r"^cmpt_", "", key)
+            code = re.sub(r"^cmp_t_", "", key)
             
             # is this component new? add it.
             if not code in comps:
