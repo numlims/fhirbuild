@@ -14,8 +14,9 @@ requires-python = ">=3.10"
 dependencies = [
   "dbcq @ git+https://github.com/numlims/dbcq.git",
   "dict_path",
-  "pandas",
-  "tram @ git+https://github.com/numlims/tram.git"
+  "fhirio @ git+https://github.com/numlims/fhirio.git",  
+  "tram @ git+https://github.com/numlims/tram.git",
+  "versionflag @ git+https://github.com/numlims/versionflag.git"  
 ]
 classifiers = [
   "Programming Language :: Python :: 3"

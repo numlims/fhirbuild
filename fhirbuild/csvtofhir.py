@@ -15,7 +15,11 @@ import math
 import fhirbuild.help as fbh
 from fhirbuild.help import intornone, is_nullish, letter_index_value
 from dbcq import dbcq
-from typing import Optional 
+from typing import Optional
+
+# increase the csv field size for very long fields to avoid this error: _csv.Error: field larger than field limit (131072)
+# apparently the error can occur when building long-string labvals
+csv.field_size_limit(1000000000)
 
 def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     """csv_to_samples turns a csv file into a list of Sample instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
@@ -220,44 +224,64 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
 
     row = DictPath(row)
 
-    # gather the components (columns prefixed by 'cmp_t_' and 'cmp_v_' for type and value respectively)
+    # gather the components (columns prefixed by 'cmp_' and 'cmpt_' for value and type respectively)
     comps = {} # map indexed by component code.
     for key in row.keys():
-        # are we at a component column
-        if re.match("^cmp_", key):
-            # each component comes with a type (t) and value (v) column:
-            # cmp_t_CODE cmp_v_CODE
-            # for the field names see the observation section in readme.md.
-            
-            # is it type or value?
-            a = key.split("_")
-            typeorval = a[1]
+        # are we at a component/labval column?
+        # columns named cmp_v_<LABVAL> hold the value for the labval.
+        # for the field names see the observation section in readme.md.        
+        if key is not None and re.match("^cmp_v_", key):
 
             # what's the code of the component?
-            code = re.sub(r"^cmp_(t|v)_", "", key)
+            code = re.sub(r"^cmp_v_", "", key)
+            
+            # is this component new? add it. let the type default to string.
+            if not code in comps:
+                comps[code] = {}
+                comps[code]["type"] = "STRING"
+
+            #print(f"fhirbuild: value of code {code}: {row[key]}")                
+
+            # put what's in the row at this key into the component value
+            comps[code]["value"] = row[key]
+                
+        # columns named cmp_t_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. TODO: can also be passed via flag (or file?)
+        if key is not None and re.match("^cmp_t_", key):
+
+            # what's the code of the component?
+            code = re.sub(r"^cmp_t_", "", key)
             
             # is this component new? add it.
             if not code in comps:
                 comps[code] = {}
 
-            # put what's in the row at this key either into the component type or value
-            if typeorval == "t":
-                comps[code]["type"] = row[key]
-            elif typeorval == "v":
-                comps[code]["value"] = row[key]
-            else:
-                print("error: each component needs a cmp_t_CODE and cmp_v_CODE column, see the fhirbuild readme.")
+            #print(f"fhirbuild: type of code {code}: {row[key]}")
+        
+            # put what's in the row at this key into the component type                
+            comps[code]["type"] = row[key]
 
+                
     comprecs = {}
     # make recs from each component.
     for code, comp in comps.items():
+        #print(f"comp for code {code}:")
+        #print(comp)
         rec = None
         if comp["type"] == "BOOLEAN":
-            rec = BooleanRec(rec=comp["value"])
+            v = None
+            if comp["value"] == "true":
+                v = True
+            elif comp["value"] == "false":
+                v = False
+            else:
+                raise Exception("BOOLEAN value needs to be 'true' or 'false'.")
+            rec = BooleanRec(rec=v)
         elif comp["type"] == "NUMBER":
-            rec = NumberRec(rec=comp["value"])
+            v = float(comp["value"])
+            rec = NumberRec(rec=v)
         elif comp["type"] == "DATE":
-            rec = DateRec(rec=comp["value"]) # parse?
+            date = datetime.fromisoformat(comp["value"])
+            rec = DateRec(rec=date) 
         elif comp["type"] == "STRING":
             rec = StringRec(rec=comp["value"])
         elif comp["type"] == "MULTI":
