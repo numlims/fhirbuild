@@ -12,7 +12,8 @@ import os
 import math
 import json
 from fhirbuild.help import datestring, genfhirid
-from fhirio import fhirio
+import fhirio
+from figs import specimen as figs
 
 
 def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3):
@@ -64,9 +65,22 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
     # write the bundles
     return fhirio.write_bundles(bundles, dir, typ="sample", wrap=wrap)
 
+def change_request_method(indir:str, outdir:str, request_method:str=None):
+    """change_request_method changes the request method for the fhir files in indir and writes them to outdir."""
+    bundles = fhirio.read_bundles_by_file(indir)
+
+    # go over the bundles (one per file)
+    for filename, bundle in bundles.items():
+        # change the request method for each entry
+        for entry in figs.entries(bundle):
+            figs.set_request_method(entry, request_method)
+
+    # write the changed bundles
+    fhirio.write_bundles_by_file(bundles, outdir)
+
 
 def _fill_in_fhirids(samples):
-    """_fill_in_fhirids fills in missing fhirids for Sample instances.  assumes sorted input, parents followed by children.  the fhirids are generated from each Sample's id.  for aliquotgroups, the fhirid is generated from the parent sampleid and the material of the aliquotgroup.  child samples should referenence their parents via the .parent:Idiable field.  for aliquotgroups .parent should contain an Identifier referencing the primary parent with either 'fhirid' or main idc code, for aliquots .parent should contain an Identifier referencing the parent aliquotgroup with either 'fhirid' or 'index' code, since aliquotgroups don't come with sampleids."""
+    """_fill_in_fhirids fills in missing fhirids for Sample instances.  assumes sorted input, parents followed by children.  the fhirids are generated from each Sample's id.  for aliquotgroups, the fhirid is generated from the parent sampleid and the material of the aliquotgroup.  child samples should referenence their parents via the .parent:Idable field.  for aliquotgroups .parent should contain an Identifier referencing the primary parent with either 'fhirid' or main idc code, for aliquots .parent should contain an Identifier referencing the parent aliquotgroup with either 'fhirid' or 'index' code, since aliquotgroups don't come with sampleids."""
 
     # remember the fhirids by oid
     fhiridbyoid = {}
