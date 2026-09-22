@@ -61,16 +61,18 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
 
     row = DictPath(row)    # common
 
-    # get the ids without sidc_ prefix
-    raw_identifiers, mainidc = extract_and_resolve_identifiers(row, prefix="sidc_", mainidc=mainidc)
-
     # make an array of Identifier instances for each sidc_
     identifiers = []
-    for type, value in raw_identifiers.items():
-        try:
-            identifiers.append(Identifier(code=type, id=value))
-        except ValueError as e:
-            print(f"Error processing identifier {type}: {e}")   
+
+    # get the ids without sidc_ prefix
+    if row["category"] != "ALIQUOTGROUP":
+        raw_identifiers, mainidc = extract_and_resolve_identifiers(row, prefix="sidc_", mainidc=mainidc)
+
+        for type, value in raw_identifiers.items():
+            try:
+                identifiers.append(Identifier(code=type, id=value))
+            except ValueError as e:
+                print(f"Error processing identifier {type}: {e}")   
 
     # if there's a fhirid, add it as identifier
     if row["fhirid"] is not None:
