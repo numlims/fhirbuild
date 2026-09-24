@@ -163,32 +163,6 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     # return
     return sample
 
-def parse_tube_position(tube_position: Optional[str | None]) -> tuple[int, int]:
-    """Converts a tube position (e.g. "A05" or "A5") to a 1-indexed (x, y) position.
-        Args:
-            tube_position (str): The tube position in the format of a row (Y) letter followed by a column (X) number (e.g., "A01").
-        Returns:
-            tuple[int, int]: A 1-indexed (x, y) tuple where x corresponds to the number and y corresponds to the letter in the A01 format,
-                e.g. "A05" becomes (5, 1).
-    """
-
-    if tube_position is None or tube_position == "":
-        raise ValueError("tube_position must not be None or empty")
-
-    y_pos_letter = tube_position[0:1]
-    x_pos = tube_position[1:]
-    
-    if not y_pos_letter.isalpha():
-        raise ValueError(f"invalid y-position {tube_position}: y needs to be a letter.")
-    
-    if not x_pos.isdigit():
-        raise ValueError(f"invalid x-position {tube_position}: x needs to be a number.")
-
-    y_pos = letter_index_value(y_pos_letter)
-    
-    x_pos = int(x_pos)
-
-    return (x_pos, y_pos)
 
 def row_to_patient(row:dict, mainidc:str=None) -> dict:
     """row_to_patient turns a csv row to a Pationt instance. mainidc can be passed as parameter or csv column. fhirids need to be generated later with _fill_in_fhirids"""
@@ -211,12 +185,10 @@ def row_to_patient(row:dict, mainidc:str=None) -> dict:
     # for now, tuck in the fhirid with the identifiers
     identifiers.append(Identifier(code="fhirid", id=row["fhirid"]))
 
+    # TODO FhirPatient to pass update_with_overwrite?
     patient = Patient(ids=Idable(ids=identifiers, mainidc=mainidc),
                       orga=row['organization_unit'])
 
-    #p_fhir = fhir_patient(patient, update_with_overwrite=update_with_overwrite)
-    
-    #return p_fhir
     return patient
 
 
@@ -354,6 +326,7 @@ def extract_identifiers(row: dict, prefix:str="idc_") -> list:
     #print(row)  # Debugging output
     return out
 
+
 def extract_and_resolve_identifiers(row: dict, prefix: str, mainidc: str) -> tuple:
     """
     Extract non-null identifier values from a row and determine the effective main identifier code.
@@ -390,6 +363,34 @@ def extract_and_resolve_identifiers(row: dict, prefix: str, mainidc: str) -> tup
         raise ValueError(f"there is an nullish value or no column for mainidc {resolved_mainidc}, please check csv data and add a column for mainidc")
     
     return extracted_identifiers, resolved_mainidc
+
+def parse_tube_position(tube_position: Optional[str | None]) -> tuple[int, int]:
+    """Converts a tube position (e.g. "A05" or "A5") to a 1-indexed (x, y) position.
+        Args:
+            tube_position (str): The tube position in the format of a row (Y) letter followed by a column (X) number (e.g., "A01").
+        Returns:
+            tuple[int, int]: A 1-indexed (x, y) tuple where x corresponds to the number and y corresponds to the letter in the A01 format,
+                e.g. "A05" becomes (5, 1).
+    """
+
+    if tube_position is None or tube_position == "":
+        raise ValueError("tube_position must not be None or empty")
+
+    y_pos_letter = tube_position[0:1]
+    x_pos = tube_position[1:]
+    
+    if not y_pos_letter.isalpha():
+        raise ValueError(f"invalid y-position {tube_position}: y needs to be a letter.")
+    
+    if not x_pos.isdigit():
+        raise ValueError(f"invalid x-position {tube_position}: x needs to be a number.")
+
+    y_pos = letter_index_value(y_pos_letter)
+    
+    x_pos = int(x_pos)
+
+    return (x_pos, y_pos)
+
 
 def _determine_mainidc(identifiers: dict, mainidc_arg: str, row: dict) -> str:
     """
