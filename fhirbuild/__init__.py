@@ -408,7 +408,8 @@ def fhir_specimen(sample:Sample=None,
     if sample.concentration is not None:
         entry["resource"]["extension"].append(fhir_extension(
             "https://fhir.centraxx.de/extension/sample/concentration",
-            {"valueQuantity": str(sample.concentration) } 
+            #{"valueQuantity": str(sample.concentration) }
+            {"valueQuantity": fhir_quantity(sample.concentration) } 
         ))
 
     if sample.samplingdate is not None:

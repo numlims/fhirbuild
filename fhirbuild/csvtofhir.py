@@ -99,6 +99,9 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     rest_amount = None
     if row['rest_amount']:
         rest_amount = Amount(value=float(row['rest_amount']), unit=row['rest_unit'])
+    concentration = None
+    if row['concentration']:
+        concentration = Amount(value=float(row['concentration']), unit=row['concentration_unit'])
 
     # make a parent Idable from parent_fhirid or parent_index
     pids = []
@@ -143,6 +146,7 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     # make a sample instance from the row
     sample = Sample(
         category=row['category'],
+        concentration=concentration,
         samplingdate=collection_date,
         repositiondate=reposition_date,
         locationpath=row['location_path'],
