@@ -50,8 +50,8 @@ primary and derived csv columns:
 | rest_amount | the rest amount |
 | rest_unit | the unit of the rest amount |
 | type | the sample's type (material: EDTA, CIT etc) |
-| xpos | the x position on the rack ? 1- or 0-indexed ? |
-| ypos | the y position on the rack |
+| xpos | the x position (long side) on the rack as 1-indexed number |
+| ypos | the y position (short side) on the rack as 1-indexed number |
 | yxpos | the position on the rack in format A01. y: A, x: 01 |
 
 aliquotgroups are created with a subset of the columns for primary and
