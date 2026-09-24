@@ -31,14 +31,14 @@ def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     return samples
 
 
-def csv_to_patient_fhir(reader: csv.DictReader, mainidc:str=None) -> list[dict]:
-    """csv_to_patient_fhir turns csv file into a list of patient fhir entries."""
+def csv_to_patients(reader: csv.DictReader, mainidc:str=None):
+    """csv_to_patients turns a csv file into a list of Patient instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
 
-    entries = []
+    patients = []
     for row in reader:
-        entries.append(row_to_patient_fhir(row, mainidc=mainidc))
+        patients.append(row_to_patient(row, mainidc=mainidc))
 
-    return entries
+    return patients
 
 
 def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:dbcq=None):
@@ -136,7 +136,7 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     # convert yxpos to xpos and ypos if given
     xpos = intornone(row['xpos'])
     ypos = intornone(row['ypos'])
-    if row.get("yxpos") is not None:
+    if row.get("yxpos") is not None and row.get("yxpos") != "":
         yxpos = row.get("yxpos")
         (xpos, ypos) = parse_tube_position(yxpos)
         
@@ -164,11 +164,11 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     return sample
 
 def parse_tube_position(tube_position: Optional[str | None]) -> tuple[int, int]:
-    """Converts a tube position (e.g. "A05") to a 1-indexed (x, y) position.
+    """Converts a tube position (e.g. "A05" or "A5") to a 1-indexed (x, y) position.
         Args:
             tube_position (str): The tube position in the format of a row (Y) letter followed by a column (X) number (e.g., "A01").
         Returns:
-            tuple[int, int]: A 1-indexed (x, y) tuple where the number is the x-position and the letter is the y-position,
+            tuple[int, int]: A 1-indexed (x, y) tuple where x corresponds to the number and y corresponds to the letter in the A01 format,
                 e.g. "A05" becomes (5, 1).
     """
 
@@ -190,8 +190,8 @@ def parse_tube_position(tube_position: Optional[str | None]) -> tuple[int, int]:
 
     return (x_pos, y_pos)
 
-def row_to_patient_fhir(row:dict, mainidc:str=None):
-    """row_to_patient_fhir turns a csv row to a patient fhir entry. it lets update_with_overwrite be set for each row."""
+def row_to_patient(row:dict, mainidc:str=None) -> dict:
+    """row_to_patient turns a csv row to a Pationt instance. mainidc can be passed as parameter or csv column. fhirids need to be generated later with _fill_in_fhirids"""
 
     # to avoid errors if keys are missing
     row = DictPath(row)
@@ -214,9 +214,10 @@ def row_to_patient_fhir(row:dict, mainidc:str=None):
     patient = Patient(ids=Idable(ids=identifiers, mainidc=mainidc),
                       orga=row['organization_unit'])
 
-    p_fhir = fhir_patient(patient, update_with_overwrite=update_with_overwrite)
+    #p_fhir = fhir_patient(patient, update_with_overwrite=update_with_overwrite)
     
-    return p_fhir
+    #return p_fhir
+    return patient
 
 
 
