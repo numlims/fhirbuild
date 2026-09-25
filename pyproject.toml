@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta" # name of the python object that fronten
 
 [project]
 name = "fhirbuild"
-version = "0.1.9"
+version = "0.1.10"
 authors = [
   { name="numlims", email="numlims@med.uni-greifswald.de"}
 ]
@@ -15,7 +15,8 @@ dependencies = [
   "dbcq @ git+https://github.com/numlims/dbcq.git",
   "dict_path",
   "fhirio @ git+https://github.com/numlims/fhirio.git",
-  "figs @ git+https://github.com/numlims/figs.git",    
+  "figs @ git+https://github.com/numlims/figs.git",
+  "traction @ git+https://github.com/numlims/traction.git",  
   "tram @ git+https://github.com/numlims/tram.git",
   "versionflag @ git+https://github.com/numlims/versionflag.git"  
 ]

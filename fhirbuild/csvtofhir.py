@@ -16,13 +16,12 @@ import fhirbuild.help as fbh
 from fhirbuild.help import intornone, is_nullish, letter_index_value
 from dbcq import dbcq
 from typing import Optional
+import tr
 
 # increase the csv field size for very long fields to avoid this error: _csv.Error: field larger than field limit (131072)
 # apparently the error can occur when building long-string labvals
 csv.field_size_limit(1000000000)
 
-# trac is the traction instance used by row_to_finding
-trac = None
 # labvals is the cache of traction labvals used by row_to_finding
 labvals = {}
 
@@ -56,9 +55,10 @@ def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:str=None):
 
     # open traction for row_to_finding to use
     trac = tr.traction(db)
+    #print("trac: " + str(trac))
 
     for i, row in enumerate(rows):
-        out.append(row_to_finding(row, delim_cmp))
+        out.append(row_to_finding(row, delim_cmp, trac=trac))
 
     return out
 
@@ -205,7 +205,7 @@ def row_to_patient(row:dict, mainidc:str=None) -> dict:
 
 
 
-def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
+def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.traction=None):
     """row_to_finding turns a csv row to a Finding instance."""
     entry = None
 
@@ -237,9 +237,9 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
             # fetch the labval if not previously fetched
             if row["method"] not in labvals:
                 res = trac.method(methods=[row["method"]])
-                if len(res) == 0:
-                    raise Exception(f"error: no method {row['method']} in {trac.target}")
-                labvals[row['method']] = res[0]['labvals']
+                #if len(res) == 0:
+                #    raise Exception(f"error: no method {row['method']} in {trac.target()}")
+                labvals[row['method']] = res[row['method']]['labvals']
 
             # set the type
             comps[code]["type"] = labvals[row['method']][code]["type"]
