@@ -35,7 +35,7 @@ def write_patients(pats:list, dir:str, batchsize:int, wrap:bool=False, should_pr
     # write the bundles
     return fhirio.write_bundles(bundles, dir, typ="patient", wrap=wrap)
 
-def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3) -> list:
+def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_print:bool=False, cxx:int=3, use_sprec:bool=False) -> list:
     """write_samples writes fhir resources of Samples and returns a list of the files written. it fills in missing fhirids."""
 
     # fill in fhirids, taking parent-child relations into account.
@@ -46,9 +46,9 @@ def write_samples(samples:list, dir:str, batchsize:int, wrap:bool=False, should_
     for sample in samples:
         # build aliquot group or standard sample
         if sample.category == "ALIQUOTGROUP":
-            entry = fhir_aliquotgroup(sample)
+            entry = fhir_aliquotgroup(sample, use_sprec=use_sprec)
         elif sample.category == "MASTER" or sample.category == "DERIVED":
-            entry = fhir_specimen(sample)
+            entry = fhir_specimen(sample, use_sprec=use_sprec)
         else:
             raise Exception(f"sample category {sample.category} is not allowed.")
 
@@ -223,7 +223,8 @@ def fhir_extension(url:str, d):
 
 
 def fhir_specimen(sample:Sample=None,
-                update_with_overwrite:bool=False ): 
+                  update_with_overwrite:bool=False,
+                  use_sprec:bool=False): 
     """fhir_specimen builds a fhir specimen. pass the sample's fhirid as an Identifier with code 'fhirid' for the sample, and, for deriveds, the fhirid of its parent aliquotgroup as an Identifier with code 'fhirid' of sample.parent. by tying the fhirids directly to the sample, calling methods can receive fhirids for lists of Samples e.g. from csv without having to sneak them in via an extra argument."""
 
     # todo also build aliquotgroups?
@@ -305,7 +306,7 @@ def fhir_specimen(sample:Sample=None,
         "extension": [
             {
                 "url": "https://fhir.centraxx.de/extension/sprec/useSprec",
-                "valueBoolean": True
+                "valueBoolean": use_sprec
             }
         ]
     }
@@ -448,7 +449,8 @@ def fhir_aliquotgroup(
         sample:Sample=None,
         fhirid:str=None,
         parent_fhirid:str=None,
-        update_with_overwrite:bool=False
+        update_with_overwrite:bool=False,
+        use_sprec:bool=False
 ):
     """fhir_aliquotgroup builds a fhir aliquotgroup from a Sample. pass fhirids as Identifiers with code "fhirid" of sample and sample.parent."""
     entry = {
@@ -477,7 +479,7 @@ def fhir_aliquotgroup(
                     "url": "https://fhir.centraxx.de/extension/sprec",
                     "extension": [{
                         "url": "https://fhir.centraxx.de/extension/sprec/useSprec",
-                        "valueBoolean": False
+                        "valueBoolean": use_sprec
                     }]
                 }
             ],

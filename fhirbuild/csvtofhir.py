@@ -21,6 +21,11 @@ from typing import Optional
 # apparently the error can occur when building long-string labvals
 csv.field_size_limit(1000000000)
 
+# trac is the traction instance used by row_to_finding
+trac = None
+# labvals is the cache of traction labvals used by row_to_finding
+labvals = {}
+
 def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     """csv_to_samples turns a csv file into a list of Sample instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
 
@@ -41,13 +46,16 @@ def csv_to_patients(reader: csv.DictReader, mainidc:str=None):
     return patients
 
 
-def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:dbcq=None):
+def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:str=None):
     """csv_to_findings turns csv rows to a list of Finding instances."""
 
     rows = list(reader)
 
     # todo check that only the specified columns are in csv
     out = []
+
+    # open traction for row_to_finding to use
+    trac = tr.traction(db)
 
     for i, row in enumerate(rows):
         out.append(row_to_finding(row, delim_cmp))
@@ -223,21 +231,35 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
 
             # put what's in the row at this key into the component value
             comps[code]["value"] = row[key]
-                
-        # columns named cmp_t_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. TODO: can also be passed via flag (or file?)
-        if key is not None and re.match("^cmp_t_", key):
 
-            # what's the code of the component?
-            code = re.sub(r"^cmp_t_", "", key)
+            # get the type for this comp from cashed labvals
+
+            # fetch the labval if not previously fetched
+            if row["method"] not in labvals:
+                res = trac.method(methods=[row["method"]])
+                if len(res) == 0:
+                    raise Exception(f"error: no method {row['method']} in {trac.target}")
+                labvals[row['method']] = res[0]['labvals']
+
+            # set the type
+            comps[code]["type"] = labvals[row['method']][code]["type"]
+
             
-            # is this component new? add it.
-            if not code in comps:
-                comps[code] = {}
+        # columns named cmp_t_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. 
+        # for now ignore, cause fetched from db
+        # if key is not None and re.match("^cmp_t_", key):
 
-            #print(f"fhirbuild: type of code {code}: {row[key]}")
+        #     # what's the code of the component?
+        #     code = re.sub(r"^cmp_t_", "", key)
+            
+        #     # is this component new? add it.
+        #     if not code in comps:
+        #         comps[code] = {}
+
+        #     #print(f"fhirbuild: type of code {code}: {row[key]}")
         
-            # put what's in the row at this key into the component type                
-            comps[code]["type"] = row[key]
+        #     # put what's in the row at this key into the component type                
+        #     comps[code]["type"] = row[key]
 
                 
     comprecs = {}

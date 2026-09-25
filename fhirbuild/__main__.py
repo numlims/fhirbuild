@@ -22,6 +22,7 @@ def parseargs():
     parser.add_argument("--db", help="db target")
     parser.add_argument("--load-required", help="db target")
     parser.add_argument("--request-method", help="request method for request_method option. POST|DELETE")
+    parser.add_argument("--use-sprec", help="use sprec. true|false")    
     versionflag.flag(parser, "fhirbuild")
     args = parser.parse_args()
     return args
@@ -48,7 +49,15 @@ def main():
             write_observations(findings, dir=args.outdir, batchsize=10, cxx=3)
         case "specimen":
             samples = csv_to_samples(dict_reader, mainidc=args.mainidc)
-            write_samples(samples, dir=args.outdir, batchsize=10, cxx=3)
+            # parse the use_sprec arg.  TODO have in csv column, put into FhirSample (data?)-type
+            use_sprec=False
+            if args.use_sprec == "true":
+                use_sprec=True
+            elif args.use_sprec == "false":
+                use_sprec=False
+            elif args.use_sprec != None:
+                raise Exception("pass either 'true' or 'false' to --use-sprec .")
+            write_samples(samples, dir=args.outdir, batchsize=10, cxx=3, use_sprec=use_sprec)
         case "patient":
             patients = csv_to_patients(dict_reader, mainidc=args.mainidc)
             write_patients(patients, dir=args.outdir, batchsize=10, cxx=3)
