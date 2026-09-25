@@ -265,8 +265,8 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.tract
     comprecs = {}
     # make recs from each component.
     for code, comp in comps.items():
-        #print(f"comp for code {code}:")
-        #print(comp)
+        print(f"comp for code {code}:")
+        print(comp)
         rec = None
         if comp["type"] == "BOOLEAN":
             v = None
@@ -277,7 +277,7 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.tract
             else:
                 raise Exception("BOOLEAN value needs to be 'true' or 'false'.")
             rec = BooleanRec(rec=v)
-        elif comp["type"] == "NUMBER":
+        elif comp["type"] == "NUMBER" or comp["type"] == "DECIMAL" or comp["type"] == "INTEGER":   # TODO is type NUMBER used actually?
             v = float(comp["value"])
             rec = NumberRec(rec=v)
         elif comp["type"] == "DATE":
@@ -293,7 +293,8 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.tract
             # split
             values = comp["value"].split(delim_cmp)
             rec = CatalogRec(rec=values)
-            
+        else:
+            raise Exception(f"labval type {comp['type']} not known.")
         comprecs[code] = rec
         
     # gather the sampleids (columns prefixed by 'sidc_') 
