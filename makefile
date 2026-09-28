@@ -6,7 +6,7 @@ docmake = ~/numlims.github.io
 
 # get the version from github tag
 # delete the v from the version tag cause python build seems to strip it as well
-version = $(shell git tag | tail -1 | tr -d v)
+version = $(shell git tag | sort -V | tail -1 | tr -d v)
 
 all:
 	ct test/test.ct
