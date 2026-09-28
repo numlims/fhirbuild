@@ -2,16 +2,16 @@
 
 import sys
 import argparse
-from fhirbuild.csvtofhir import csv_to_samples, csv_to_findings, csv_to_patient_fhir
-from fhirbuild import writeout, write_samples, write_observations, bundle
+from fhirbuild.csvtofhir import csv_to_samples, csv_to_findings, csv_to_patients
+from fhirbuild import write_samples, write_observations, write_patients, change_request_method
 import fhirbuild.help as fbh
 import versionflag
 
 def parseargs():
     """parseargs parses command line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("type", help="observation or specimen or patient")
-    parser.add_argument("incsv", help="input csv")
+    parser.add_argument("type", help="observation|specimen|patient|request_method")
+    parser.add_argument("incsv", help="input csv (input dir for request_method)")
     parser.add_argument("outdir", help="fhir json files land here")
     parser.add_argument("-d", help="delimiter (assumed ;)", required=False, default=";")
     parser.add_argument("--delim-cmp", help="delimiter for the cmp value field for the multi-value cmp types MULTI and CATALOG (assumed ,)", required=False, default=",")    
@@ -21,6 +21,8 @@ def parseargs():
     parser.add_argument("--mainidc", help="the idcontainer from which the fhirid is built, can be left out if there is only one idcontainer given.")
     parser.add_argument("--db", help="db target")
     parser.add_argument("--load-required", help="db target")
+    parser.add_argument("--request-method", help="request method for request_method option. POST|DELETE")
+    parser.add_argument("--use-sprec", help="use sprec. true|false")    
     versionflag.flag(parser, "fhirbuild")
     args = parser.parse_args()
     return args
@@ -36,8 +38,9 @@ def main():
     if args.d != None:
         delimiter = args.d
 
-    # read the csv
-    dict_reader = fbh.open_csv_file(args.incsv, delimiter=delimiter, encoding=args.e)
+    # read the csv, except for request_method (where it is a dir)
+    if args.type != "request_method":
+        dict_reader = fbh.open_csv_file(args.incsv, delimiter=delimiter, encoding=args.e)
 
     # build what's needed
     match args.type:
@@ -46,12 +49,20 @@ def main():
             write_observations(findings, dir=args.outdir, batchsize=10, cxx=3)
         case "specimen":
             samples = csv_to_samples(dict_reader, mainidc=args.mainidc)
-            write_samples(samples, dir=args.outdir, batchsize=10, cxx=3)
+            # parse the use_sprec arg.  TODO have in csv column, put into FhirSample (data?)-type
+            use_sprec=False
+            if args.use_sprec == "true":
+                use_sprec=True
+            elif args.use_sprec == "false":
+                use_sprec=False
+            elif args.use_sprec != None:
+                raise Exception("pass either 'true' or 'false' to --use-sprec .")
+            write_samples(samples, dir=args.outdir, batchsize=10, cxx=3, use_sprec=use_sprec)
         case "patient":
-            # at the moment don't make Patient instances, cause each csv row carries an updateWithOverwrite field that couldn't be saved directly to Patients at the moment (make a FhirPatient that inherits from Patient? maybe that's a bit overdone). could we pass a --update-with-overwrite flag for all rows, or does it make sense to keep this row-specific?
-            entries = csv_to_patient_fhir(dict_reader, mainidc=args.mainidc)
-            bundles = bundle(entries, 10, restype="Patient", cxx=3)
-            writeout(bundles, args.outdir, args.type)
+            patients = csv_to_patients(dict_reader, mainidc=args.mainidc)
+            write_patients(patients, dir=args.outdir, batchsize=10, cxx=3)
+        case "request_method":
+            change_request_method(args.incsv, args.outdir, request_method=args.request_method)
         case _:
             print(f"Unknown type: {args.type}")
             sys.exit(1)
@@ -59,3 +70,5 @@ def main():
 
 # kick off program
 sys.exit(main())
+
+

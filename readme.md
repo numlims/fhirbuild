@@ -50,8 +50,8 @@ primary and derived csv columns:
 | rest_amount | the rest amount |
 | rest_unit | the unit of the rest amount |
 | type | the sample's type (material: EDTA, CIT etc) |
-| xpos | the x position on the rack ? 1- or 0-indexed ? |
-| ypos | the y position on the rack |
+| xpos | the x position (long side) on the rack as 1-indexed number |
+| ypos | the y position (short side) on the rack as 1-indexed number |
 | yxpos | the position on the rack in format A01. y: A, x: 01 |
 
 aliquotgroups are created with a subset of the columns for primary and
@@ -85,7 +85,7 @@ of the MULTI and CATALOG cmp_* value lists.
 | csv column | comment |
 | --- | --- |
 | cmp_v_CODE | the value of the messparam with code CODE. DATE values: iso string. BOOLEAN values: true|false |
-| cmp_t_CODE | optional. the type of the messparam with code CODE. can be BOOLEAN, NUMBER, STRING, DATE, MULTI, CATALOG. can also be passed via --param-type or --param-type-yaml. if none given STRING assumed. |
+| cmp_t_CODE | optional. the type of the messparam with code CODE. not needed in normal usage, cause it is read from db via --db. |
 | effective_date_time | sollte das datetime heissen? |
 | sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
 | pidc_[LIMSPSN\|MPI\|...] | one patientid of given idcontainer |
