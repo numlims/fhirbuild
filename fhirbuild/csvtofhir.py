@@ -224,33 +224,34 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
     comps = {} # map indexed by component code.
     for key in row.keys():
         # are we at a component column
-        if re.match("^cmp_", key):
+        if not (key.startswith("cmp_v_")):
+            continue
             # each component comes with a type (t) and value (v) column:
             # cmp_t_CODE cmp_v_CODE
             # for the field names see the observation section in readme.md.
             
-            # is it type or value?
-            a = key.split("_")
-            typeorval = a[1]
+        code = key.split("_", 2)[2]
+        
+        # is this component new? add it.
+        if not code in comps:
+        
+            if (row[key] is None or row[key].strip() == "") and 'cmp_t_' + code in row.keys() and (row['cmp_t_' + code].strip() != "STRING"):
+                continue
+            comps[code] = {}
+            comps[code]["value"] = row[key]
 
-            # what's the code of the component?
-            code = re.sub(r"^cmp_(t|v)_", "", key)
-            
-            # is this component new? add it.
-            if not code in comps:
-                comps[code] = {}
-
-            # put what's in the row at this key either into the component type or value
-            if typeorval == "t":
-                comps[code]["type"] = row[key]
-            elif typeorval == "v":
-                comps[code]["value"] = row[key]
+            if ("cmp_t_" + code) in row:
+                print(f"Found type for component {code}: {row['cmp_t_' + code]}")
+                comps[code]["type"] = row["cmp_t_" + code]  
             else:
-                print("error: each component needs a cmp_t_CODE and cmp_v_CODE column, see the fhirbuild readme.")
+                comps[code]["type"] = "STRING"
+        else:
+            raise ValueError(f"Duplicated column in CSV: component {code} already exists but was not handled properly.")
 
     comprecs = {}
     # make recs from each component.
     for code, comp in comps.items():
+      
         rec = None
         if comp["type"] == "BOOLEAN":
             rec = BooleanRec(rec=comp["value"])
@@ -262,6 +263,7 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
             rec = StringRec(rec=comp["value"])
         elif comp["type"] == "MULTI":
             # split the value
+            print(f"Splitting MULTI component value: {comp['value']}")
             values = comp["value"].split(delim_cmp)
             rec = MultiRec(rec=values)
         elif comp["type"] == "CATALOG":
