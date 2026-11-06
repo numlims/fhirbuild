@@ -16,10 +16,14 @@ import fhirbuild.help as fbh
 from fhirbuild.help import intornone, is_nullish, letter_index_value
 from dbcq import dbcq
 from typing import Optional
+import tr
 
 # increase the csv field size for very long fields to avoid this error: _csv.Error: field larger than field limit (131072)
 # apparently the error can occur when building long-string labvals
 csv.field_size_limit(1000000000)
+
+# labvals is the cache of traction labvals used by row_to_finding
+labvals = {}
 
 def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     """csv_to_samples turns a csv file into a list of Sample instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
@@ -31,17 +35,17 @@ def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     return samples
 
 
-def csv_to_patient_fhir(reader: csv.DictReader, mainidc:str=None) -> list[dict]:
-    """csv_to_patient_fhir turns csv file into a list of patient fhir entries."""
+def csv_to_patients(reader: csv.DictReader, mainidc:str=None):
+    """csv_to_patients turns a csv file into a list of Patient instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
 
-    entries = []
+    patients = []
     for row in reader:
-        entries.append(row_to_patient_fhir(row, mainidc=mainidc))
+        patients.append(row_to_patient(row, mainidc=mainidc))
 
-    return entries
+    return patients
 
 
-def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:dbcq=None):
+def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:str=None):
     """csv_to_findings turns csv rows to a list of Finding instances."""
 
     rows = list(reader)
@@ -49,8 +53,12 @@ def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:dbcq=None):
     # todo check that only the specified columns are in csv
     out = []
 
+    # open traction for row_to_finding to use
+    trac = tr.traction(db)
+    #print("trac: " + str(trac))
+
     for i, row in enumerate(rows):
-        out.append(row_to_finding(row, delim_cmp))
+        out.append(row_to_finding(row, delim_cmp, trac=trac))
 
     return out
 
@@ -61,16 +69,18 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
 
     row = DictPath(row)    # common
 
-    # get the ids without sidc_ prefix
-    raw_identifiers, mainidc = extract_and_resolve_identifiers(row, prefix="sidc_", mainidc=mainidc)
-
     # make an array of Identifier instances for each sidc_
     identifiers = []
-    for type, value in raw_identifiers.items():
-        try:
-            identifiers.append(Identifier(code=type, id=value))
-        except ValueError as e:
-            print(f"Error processing identifier {type}: {e}")   
+
+    # get the ids without sidc_ prefix
+    if row["category"] != "ALIQUOTGROUP":
+        raw_identifiers, mainidc = extract_and_resolve_identifiers(row, prefix="sidc_", mainidc=mainidc)
+
+        for type, value in raw_identifiers.items():
+            try:
+                identifiers.append(Identifier(code=type, id=value))
+            except ValueError as e:
+                print(f"Error processing identifier {type}: {e}")   
 
     # if there's a fhirid, add it as identifier
     if row["fhirid"] is not None:
@@ -97,6 +107,9 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     rest_amount = None
     if row['rest_amount']:
         rest_amount = Amount(value=float(row['rest_amount']), unit=row['rest_unit'])
+    concentration = None
+    if row['concentration']:
+        concentration = Amount(value=float(row['concentration']), unit=row['concentration_unit'])
 
     # make a parent Idable from parent_fhirid or parent_index
     pids = []
@@ -134,13 +147,14 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     # convert yxpos to xpos and ypos if given
     xpos = intornone(row['xpos'])
     ypos = intornone(row['ypos'])
-    if row.get("yxpos") is not None:
+    if row.get("yxpos") is not None and row.get("yxpos") != "":
         yxpos = row.get("yxpos")
         (xpos, ypos) = parse_tube_position(yxpos)
         
     # make a sample instance from the row
     sample = Sample(
         category=row['category'],
+        concentration=concentration,
         samplingdate=collection_date,
         repositiondate=reposition_date,
         locationpath=row['location_path'],
@@ -161,35 +175,9 @@ def row_to_sample(row:dict, mainidc:str=None) -> dict:
     # return
     return sample
 
-def parse_tube_position(tube_position: Optional[str | None]) -> tuple[int, int]:
-    """Converts a tube position (e.g. "A05") to a 1-indexed (x, y) position.
-        Args:
-            tube_position (str): The tube position in the format of a row (Y) letter followed by a column (X) number (e.g., "A01").
-        Returns:
-            tuple[int, int]: A 1-indexed (x, y) tuple where the number is the x-position and the letter is the y-position,
-                e.g. "A05" becomes (5, 1).
-    """
 
-    if tube_position is None or tube_position == "":
-        raise ValueError("tube_position must not be None or empty")
-
-    y_pos_letter = tube_position[0:1]
-    x_pos = tube_position[1:]
-    
-    if not y_pos_letter.isalpha():
-        raise ValueError(f"invalid y-position {tube_position}: y needs to be a letter.")
-    
-    if not x_pos.isdigit():
-        raise ValueError(f"invalid x-position {tube_position}: x needs to be a number.")
-
-    y_pos = letter_index_value(y_pos_letter)
-    
-    x_pos = int(x_pos)
-
-    return (x_pos, y_pos)
-
-def row_to_patient_fhir(row:dict, mainidc:str=None):
-    """row_to_patient_fhir turns a csv row to a patient fhir entry. it lets update_with_overwrite be set for each row."""
+def row_to_patient(row:dict, mainidc:str=None) -> dict:
+    """row_to_patient turns a csv row to a Pationt instance. mainidc can be passed as parameter or csv column. fhirids need to be generated later with _fill_in_fhirids"""
 
     # to avoid errors if keys are missing
     row = DictPath(row)
@@ -209,16 +197,15 @@ def row_to_patient_fhir(row:dict, mainidc:str=None):
     # for now, tuck in the fhirid with the identifiers
     identifiers.append(Identifier(code="fhirid", id=row["fhirid"]))
 
+    # TODO FhirPatient to pass update_with_overwrite?
     patient = Patient(ids=Idable(ids=identifiers, mainidc=mainidc),
                       orga=row['organization_unit'])
 
-    p_fhir = fhir_patient(patient, update_with_overwrite=update_with_overwrite)
-    
-    return p_fhir
+    return patient
 
 
 
-def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
+def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.traction=None):
     """row_to_finding turns a csv row to a Finding instance."""
     entry = None
 
@@ -244,21 +231,35 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
 
             # put what's in the row at this key into the component value
             comps[code]["value"] = row[key]
-                
-        # columns named cmp_t_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. TODO: can also be passed via flag (or file?)
-        if key is not None and re.match("^cmp_t_", key):
 
-            # what's the code of the component?
-            code = re.sub(r"^cmp_t_", "", key)
+            # get the type for this comp from cashed labvals
+
+            # fetch the labval if not previously fetched
+            if row["method"] not in labvals:
+                res = trac.method(methods=[row["method"]])
+                #if len(res) == 0:
+                #    raise Exception(f"error: no method {row['method']} in {trac.target()}")
+                labvals[row['method']] = res[row['method']]['labvals']
+
+            # set the type
+            comps[code]["type"] = labvals[row['method']][code]["type"]
+
             
-            # is this component new? add it.
-            if not code in comps:
-                comps[code] = {}
+        # columns named cmp_t_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. 
+        # for now ignore, cause fetched from db
+        # if key is not None and re.match("^cmp_t_", key):
 
-            #print(f"fhirbuild: type of code {code}: {row[key]}")
+        #     # what's the code of the component?
+        #     code = re.sub(r"^cmp_t_", "", key)
+            
+        #     # is this component new? add it.
+        #     if not code in comps:
+        #         comps[code] = {}
+
+        #     #print(f"fhirbuild: type of code {code}: {row[key]}")
         
-            # put what's in the row at this key into the component type                
-            comps[code]["type"] = row[key]
+        #     # put what's in the row at this key into the component type                
+        #     comps[code]["type"] = row[key]
 
                 
     comprecs = {}
@@ -276,9 +277,11 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
             else:
                 raise Exception("BOOLEAN value needs to be 'true' or 'false'.")
             rec = BooleanRec(rec=v)
-        elif comp["type"] == "NUMBER":
-            v = float(comp["value"])
-            rec = NumberRec(rec=v)
+        elif comp["type"] == "NUMBER" or comp["type"] == "DECIMAL" or comp["type"] == "INTEGER":   # TODO is type NUMBER used actually?
+            # only build a rec if there is a value
+            if comp["value"] != "":
+                v = float(comp["value"])
+                rec = NumberRec(rec=v)
         elif comp["type"] == "DATE":
             date = datetime.fromisoformat(comp["value"])
             rec = DateRec(rec=date) 
@@ -292,8 +295,11 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False):
             # split
             values = comp["value"].split(delim_cmp)
             rec = CatalogRec(rec=values)
-            
-        comprecs[code] = rec
+        else:
+            raise Exception(f"labval type {comp['type']} not known.")
+
+        if rec is not None:
+            comprecs[code] = rec
         
     # gather the sampleids (columns prefixed by 'sidc_') 
     raw_identifiers = extract_identifiers(row, prefix="sidc_")
@@ -351,6 +357,7 @@ def extract_identifiers(row: dict, prefix:str="idc_") -> list:
     #print(row)  # Debugging output
     return out
 
+
 def extract_and_resolve_identifiers(row: dict, prefix: str, mainidc: str) -> tuple:
     """
     Extract non-null identifier values from a row and determine the effective main identifier code.
@@ -387,6 +394,34 @@ def extract_and_resolve_identifiers(row: dict, prefix: str, mainidc: str) -> tup
         raise ValueError(f"there is an nullish value or no column for mainidc {resolved_mainidc}, please check csv data and add a column for mainidc")
     
     return extracted_identifiers, resolved_mainidc
+
+def parse_tube_position(tube_position: Optional[str | None]) -> tuple[int, int]:
+    """Converts a tube position (e.g. "A05" or "A5") to a 1-indexed (x, y) position.
+        Args:
+            tube_position (str): The tube position in the format of a row (Y) letter followed by a column (X) number (e.g., "A01").
+        Returns:
+            tuple[int, int]: A 1-indexed (x, y) tuple where x corresponds to the number and y corresponds to the letter in the A01 format,
+                e.g. "A05" becomes (5, 1).
+    """
+
+    if tube_position is None or tube_position == "":
+        raise ValueError("tube_position must not be None or empty")
+
+    y_pos_letter = tube_position[0:1]
+    x_pos = tube_position[1:]
+    
+    if not y_pos_letter.isalpha():
+        raise ValueError(f"invalid y-position {tube_position}: y needs to be a letter.")
+    
+    if not x_pos.isdigit():
+        raise ValueError(f"invalid x-position {tube_position}: x needs to be a number.")
+
+    y_pos = letter_index_value(y_pos_letter)
+    
+    x_pos = int(x_pos)
+
+    return (x_pos, y_pos)
+
 
 def _determine_mainidc(identifiers: dict, mainidc_arg: str, row: dict) -> str:
     """
