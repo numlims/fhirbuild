@@ -161,8 +161,8 @@ def write_observations(findings:list, dir:str, batchsize:int, wrap:bool=False, s
     for finding in findings:
         # make a fhirid from sampleid, method code and date.
         #print("sampleid: " + finding.sample.id())
-        #print("method: " + finding.method)
-        fhirid = genfhirid(finding.sample.id() + finding.method + str(finding.findingdate))
+        #print("method: " + finding.method.code)
+        fhirid = genfhirid(finding.sample.id() + finding.method.code + str(finding.findingdate))
         entries.append(fhir_obs(finding, fhirid=fhirid))
         i += 1
 
@@ -576,7 +576,7 @@ def fhir_obs(
                     {
                         "system": "urn:centraxx",
                         "version": "1",
-                        "code": str(finding.method)
+                        "code": str(finding.method.code)
                     }
                 ]
             },
@@ -605,7 +605,7 @@ def fhir_obs(
         if type(rec) is NumberRec: # are numbers always turned to quantities? # todo
             comp["valueQuantity"] = {
                 # shouldn't NumberRec.value already be a float?
-                "value": float(rec.rec) if rec.rec is not None else 0 # todo setting 0 is not right actually, cause the db returns NULL, but None isn't accepted by fhirimporter 
+                "value": rec.rec if rec.rec is not None else 0 # todo setting 0 is not right actually, cause the db returns NULL, but None isn't accepted by fhirimporter 
             }
             # set the unit only if it is there
             if rec.unit is not None and "valueQuantity" in comp:

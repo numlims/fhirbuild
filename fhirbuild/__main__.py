@@ -2,6 +2,7 @@
 
 import sys
 import argparse
+import yaml
 from fhirbuild.csvtofhir import csv_to_samples, csv_to_findings, csv_to_patients
 from fhirbuild import write_samples, write_observations, write_patients, change_request_method
 import fhirbuild.help as fbh
@@ -22,7 +23,8 @@ def parseargs():
     parser.add_argument("--db", help="db target")
     parser.add_argument("--load-required", help="db target")
     parser.add_argument("--request-method", help="request method for request_method option. POST|DELETE")
-    parser.add_argument("--use-sprec", help="use sprec. true|false")    
+    parser.add_argument("--use-sprec", help="use sprec. true|false")
+    parser.add_argument("--labval-yaml", help="masterblaster yaml for labvals (messparamenter) to get their types")
     versionflag.flag(parser, "fhirbuild")
     args = parser.parse_args()
     return args
@@ -45,7 +47,13 @@ def main():
     # build what's needed
     match args.type:
         case "observation":
-            findings = csv_to_findings(dict_reader, args.delim_cmp, db=args.db)
+            # read yaml labvals if given
+            yamllabvals = None
+            if args.labval_yaml is not None:
+                with open(args.labval_yaml, "r") as file:
+                    yamllabvals = yaml.safe_load(file)
+            # turn csv to findings
+            findings = csv_to_findings(dict_reader, args.delim_cmp, db=args.db, yamllabvals=yamllabvals)
             write_observations(findings, dir=args.outdir, batchsize=10, cxx=3)
         case "specimen":
             samples = csv_to_samples(dict_reader, mainidc=args.mainidc)

@@ -5,7 +5,7 @@
 from fhirbuild import *
 from datetime import datetime
 from dict_path import DictPath
-from tram import Sample, Patient, Amount, Finding, Identifier, Idable
+from tram import Sample, Patient, Amount, Finding, Identifier, Idable, Method
 from tram import Rec, BooleanRec, NumberRec, StringRec, DateRec, MultiRec, CatalogRec
 import csv
 import json
@@ -22,8 +22,8 @@ import tr
 # apparently the error can occur when building long-string labvals
 csv.field_size_limit(1000000000)
 
-# labvals is the cache of traction labvals used by row_to_finding
-labvals = {}
+# dblabvals is the cache of traction labvals used by row_to_finding
+dblabvals = {}
 
 def csv_to_samples(reader: csv.DictReader, mainidc:str=None):
     """csv_to_samples turns a csv file into a list of Sample instances. mainidc can be given as argument or csv column. fhirids are taken if given, but not generated."""
@@ -45,7 +45,7 @@ def csv_to_patients(reader: csv.DictReader, mainidc:str=None):
     return patients
 
 
-def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:str=None):
+def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:str=None, yamllabvals:dict=None):
     """csv_to_findings turns csv rows to a list of Finding instances."""
 
     rows = list(reader)
@@ -54,11 +54,13 @@ def csv_to_findings(reader: csv.DictReader, delim_cmp:str=",", db:str=None):
     out = []
 
     # open traction for row_to_finding to use
-    trac = tr.traction(db)
+    trac = None
+    if db is not None:
+        trac = tr.traction(db)
     #print("trac: " + str(trac))
 
     for i, row in enumerate(rows):
-        out.append(row_to_finding(row, delim_cmp, trac=trac))
+        out.append(row_to_finding(row, delim_cmp, trac=trac, yamllabvals=yamllabvals))
 
     return out
 
@@ -205,13 +207,13 @@ def row_to_patient(row:dict, mainidc:str=None) -> dict:
 
 
 
-def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.traction=None):
+def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.traction=None, yamllabvals:dict=None):
     """row_to_finding turns a csv row to a Finding instance."""
     entry = None
 
     row = DictPath(row)
 
-    # gather the components (columns prefixed by 'cmp_' and 'cmpt_' for value and type respectively)
+    # gather the components (columns prefixed by 'cmp_v_' and 'cmp_t_' for value and type respectively)
     comps = {} # map indexed by component code.
     for key in row.keys():
         # are we at a component/labval column?
@@ -232,17 +234,25 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.tract
             # put what's in the row at this key into the component value
             comps[code]["value"] = row[key]
 
-            # get the type for this comp from cashed labvals
+            # get the type for this comp from cashed dblabvals
 
             # fetch the labval if not previously fetched
-            if row["method"] not in labvals:
+            if trac is not None and row["method"] not in dblabvals:
                 res = trac.method(methods=[row["method"]])
                 #if len(res) == 0:
                 #    raise Exception(f"error: no method {row['method']} in {trac.target()}")
-                labvals[row['method']] = res[row['method']]['labvals']
+                dblabvals[row['method']] = res[row['method']].labvals
 
-            # set the type
-            comps[code]["type"] = labvals[row['method']][code]["type"]
+            # set the labval type.
+
+            # either from db labvals
+            if trac is not None:
+                comps[code]["type"] = dblabvals[row['method']][code]["type"]
+            elif yamllabvals is not None:
+                if code in yamllabvals and "type" in yamllabvals[code]:
+                    comps[code]["type"] = yamllabvals[code]["type"].upper()
+            else:
+                comps[code]["type"] = "STRING"    
 
             
         # columns named cmp_t_<LABVAL> can hold the type for a labval. if not given, type STRING is assumed. 
@@ -270,17 +280,25 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.tract
         rec = None
         if comp["type"] == "BOOLEAN":
             v = None
-            if comp["value"] == "true":
+            if comp["value"] == "true" or comp["value"] == 1 or re.match("^1(\.0*)?$", comp["value"]):  # TODO be more restrictive with what's allowed?
                 v = True
-            elif comp["value"] == "false":
+            elif comp["value"] == "false" or comp["value"] == 0 or re.match("^0(\.0*)?$", comp["value"]):
                 v = False
+            elif comp["value"] == "":
+                continue # don't build recorded value for empty values.  TODO is that good?
             else:
-                raise Exception("BOOLEAN value needs to be 'true' or 'false'.")
+                raise Exception(f"BOOLEAN value {comp['value']} (type {type(comp['value'])}) for {code} needs to be 'true' or 'false'.")
             rec = BooleanRec(rec=v)
         elif comp["type"] == "NUMBER" or comp["type"] == "DECIMAL" or comp["type"] == "INTEGER":   # TODO is type NUMBER used actually?
             # only build a rec if there is a value
             if comp["value"] != "":
-                v = float(comp["value"])
+                v = None
+                try:
+                    v = float(comp["value"])
+                except ValueError:
+                    # skip strings that aren't parseable to float
+                    print(f"'{comp['value']}' at {code} not parsable to float, skipping it.")
+                    continue
                 rec = NumberRec(rec=v)
         elif comp["type"] == "DATE":
             date = datetime.fromisoformat(comp["value"])
@@ -296,7 +314,7 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.tract
             values = comp["value"].split(delim_cmp)
             rec = CatalogRec(rec=values)
         else:
-            raise Exception(f"labval type {comp['type']} not known.")
+            raise Exception(f"labval type {comp['type']} for {code} not known.")
 
         if rec is not None:
             comprecs[code] = rec
@@ -321,7 +339,7 @@ def row_to_finding(row:dict, delim_cmp:str=",", delete:bool=False, trac:tr.tract
 
     # build the finding
     finding = Finding(findingdate=effectivedate,
-                      method=row['method'],
+                      method=Method(code=row['method']),
                       name=row['name'],
                       patient=Idable(ids=patids, mainidc=patids[0].code),
                       recs=comprecs,
