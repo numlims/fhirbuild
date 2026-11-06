@@ -16,6 +16,7 @@ dependencies = [
   "dict_path",
   "fhirio @ git+https://github.com/numlims/fhirio.git",
   "figs @ git+https://github.com/numlims/figs.git",
+  "pyyaml",
   "traction @ git+https://github.com/numlims/traction.git",  
   "tram @ git+https://github.com/numlims/tram.git",
   "versionflag @ git+https://github.com/numlims/versionflag.git"  

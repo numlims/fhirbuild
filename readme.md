@@ -84,7 +84,7 @@ of the MULTI and CATALOG cmp_* value lists.
 
 | csv column | comment |
 | --- | --- |
-| cmp_v_CODE | the value of the messparam with code CODE. DATE values: iso string. BOOLEAN values: true|false |
+| cmp_v_CODE | the value of the messparam with code CODE. DATE values: iso string. BOOLEAN values: true|1 and false|0 |
 | cmp_t_CODE | optional. the type of the messparam with code CODE. not needed in normal usage, cause it is read from db via --db. |
 | effective_date_time | sollte das datetime heissen? |
 | sidc_[SAMPLEID\|EXTSAMPLEID\|...] | sample ids specified by idcontainers |
